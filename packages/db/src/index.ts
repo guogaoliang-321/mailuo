@@ -1,5 +1,5 @@
 export { getDb, closePg } from "./pg/client.js";
 export * as pgSchema from "./pg/schema.js";
-export { getNeo4jDriver, getSession, closeNeo4j } from "./neo4j/client.js";
-export { seedNeo4jConstraints } from "./neo4j/seed.js";
-export * as neo4jQueries from "./neo4j/queries/index.js";
+import * as _queries from "./pg/queries.js";
+export const pgQueries = _queries;
+export const neo4jQueries = _queries;

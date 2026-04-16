@@ -19,7 +19,6 @@
   },
   "dependencies": {
     "@meridian/shared": "workspace:*",
-    "neo4j-driver": "^5.27.0",
     "drizzle-orm": "^0.39.0",
     "postgres": "^3.4.0"
   },

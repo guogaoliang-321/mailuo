@@ -43,53 +43,5 @@ recommendationRoutes.get("/stats", async (c) => {
  */
 recommendationRoutes.get("/graph", async (c) => {
   const graphData = await neo4jQueries.getNetworkGraph(c.get("userId"));
-
-  if (!graphData.self) {
-    return c.json({ success: true, data: { nodes: [], links: [] } });
-  }
-
-  const nodes: Array<{
-    id: string;
-    label: string;
-    type: "user" | "circle";
-  }> = [];
-  const links: Array<{
-    source: string;
-    target: string;
-    type: string;
-  }> = [];
-
-  // Add self
-  nodes.push({
-    id: graphData.self.id,
-    label: graphData.self.displayName,
-    type: "user",
-  });
-
-  // Add circles
-  for (const circle of graphData.circles) {
-    nodes.push({ id: circle.id, label: circle.name, type: "circle" });
-    links.push({
-      source: graphData.self.id,
-      target: circle.id,
-      type: "MEMBER_OF",
-    });
-  }
-
-  // Add peers
-  for (const peer of graphData.peers) {
-    if (!nodes.some((n) => n.id === peer.id)) {
-      nodes.push({ id: peer.id, label: peer.displayName, type: "user" });
-    }
-    // Find shared circles for links
-    for (const circle of graphData.circles) {
-      links.push({
-        source: peer.id,
-        target: circle.id,
-        type: "MEMBER_OF",
-      });
-    }
-  }
-
-  return c.json({ success: true, data: { nodes, links } });
+  return c.json({ success: true, data: graphData });
 });

@@ -2,7 +2,7 @@ import { Hono } from "hono";
 import { setCookie, deleteCookie, getCookie } from "hono/cookie";
 import { hash, verify } from "@node-rs/argon2";
 import { nanoid } from "nanoid";
-import { getDb, pgSchema, neo4jQueries, getSession as getNeo4jSession } from "@meridian/db";
+import { getDb, pgSchema } from "@meridian/db";
 import { loginSchema, registerSchema } from "@meridian/shared";
 import { eq, and, gt, sql } from "drizzle-orm";
 import { requireAuth } from "../middleware/auth.js";
@@ -70,17 +70,6 @@ authRoutes.post("/register", async (c) => {
       usedBy: user.id,
     })
     .where(eq(pgSchema.inviteCodes.id, invite.id));
-
-  // Create user node in Neo4j
-  const neo4jSession = getNeo4jSession();
-  try {
-    await neo4jSession.run(
-      `CREATE (u:User {id: $id, displayName: $displayName, email: $email, domainTags: []})`,
-      { id: user.id, displayName, email }
-    );
-  } finally {
-    await neo4jSession.close();
-  }
 
   // Create session
   const sessionId = nanoid(64);

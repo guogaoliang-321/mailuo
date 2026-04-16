@@ -3,7 +3,6 @@ import { serve } from "@hono/node-server";
 import { Hono } from "hono";
 import { cors } from "hono/cors";
 import { logger } from "hono/logger";
-import { seedNeo4jConstraints } from "@meridian/db";
 import { authRoutes } from "./routes/auth.js";
 import { projectRoutes } from "./routes/projects.js";
 import { relationshipRoutes } from "./routes/relationships.js";
@@ -41,17 +40,6 @@ app.route("/api/v1/recommendations", recommendationRoutes);
 
 const port = Number(process.env.PORT ?? 4000);
 
-async function start() {
-  try {
-    await seedNeo4jConstraints();
-    console.log("[meridian] Neo4j constraints initialized");
-  } catch {
-    console.warn("[meridian] Neo4j not available, skipping constraint init");
-  }
-
-  serve({ fetch: app.fetch, port }, () => {
-    console.log(`[meridian] API server running on http://localhost:${port}`);
-  });
-}
-
-start();
+serve({ fetch: app.fetch, port }, () => {
+  console.log(`[meridian] API server running on http://localhost:${port}`);
+});
