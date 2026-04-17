@@ -5,6 +5,7 @@ import { api } from "@/lib/api";
 import { useParams } from "next/navigation";
 import Link from "next/link";
 import { useAuth } from "@/lib/auth";
+import { useState } from "react";
 
 interface RequestDetail {
   id: string;
@@ -64,6 +65,10 @@ export default function RequestDetailPage() {
     queryKey: ["relay-steps", id],
     queryFn: () => api.get<RelayStep[]>(`/requests/${id}/steps`),
   });
+
+  const [responseMsg, setResponseMsg] = useState("");
+  const [responding, setResponding] = useState(false);
+  const [responseSent, setResponseSent] = useState(false);
 
   // Find request from either source
   const request = (requestsData?.data ?? []).find((r) => r.id === id)
@@ -275,6 +280,62 @@ export default function RequestDetailPage() {
               {rejectMutation.isPending ? "处理中..." : "✕ 拒绝"}
             </button>
           </div>
+        </div>
+      )}
+
+      {/* Response actions for circle members (not the initiator) */}
+      {request.status === "pending" && request.initiatorId !== user?.id && !canAct && (
+        <div className="glass-card p-5" style={{ marginBottom: 0, borderColor: "rgba(212,168,83,0.2)" }}>
+          <div className="text-sm font-semibold text-white/80 mb-3">💡 你可以帮忙</div>
+          <p className="text-xs text-white/40 mb-4">
+            {request.initiatorName} 正在寻找资源，如果你有相关线索或认识合适的人，可以响应
+          </p>
+          <div className="space-y-3">
+            <div>
+              <textarea
+                value={responseMsg}
+                onChange={(e) => setResponseMsg(e.target.value)}
+                placeholder="描述你的线索或可以提供的帮助..."
+                rows={3}
+                className="input-dark resize-none w-full"
+              />
+            </div>
+            <div className="grid grid-cols-2 gap-3">
+              <button
+                onClick={async () => {
+                  setResponding(true);
+                  await api.post(`/requests/${id}/respond`, { type: "clue", message: responseMsg });
+                  setResponding(false);
+                  setResponseMsg("");
+                  setResponseSent(true);
+                }}
+                disabled={responding || !responseMsg.trim()}
+                className="btn-gold py-3 text-sm"
+              >
+                {responding ? "提交中..." : "💬 我有线索"}
+              </button>
+              <button
+                onClick={async () => {
+                  setResponding(true);
+                  await api.post(`/requests/${id}/respond`, { type: "relay", message: responseMsg });
+                  setResponding(false);
+                  setResponseMsg("");
+                  setResponseSent(true);
+                }}
+                disabled={responding || !responseMsg.trim()}
+                className="btn-glass py-3 text-sm"
+              >
+                {responding ? "提交中..." : "⇌ 帮忙转介"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Response sent confirmation */}
+      {responseSent && (
+        <div className="glass-card p-4 text-center" style={{ marginBottom: 0, borderColor: "rgba(48,209,88,0.2)" }}>
+          <span className="text-sm text-[#30D158]">✓ 已提交，发起人会收到你的响应</span>
         </div>
       )}
 

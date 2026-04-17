@@ -85,6 +85,31 @@ requestRoutes.post("/:id/reject", requireAuth, async (c) => {
   return c.json({ success: true });
 });
 
+// Respond to a request (I have a clue / help relay)
+requestRoutes.post("/:id/respond", requireAuth, async (c) => {
+  const body = await c.req.json() as { type: string; message: string };
+  const requestId = c.req.param("id");
+  const userId = c.get("userId");
+
+  const { getDb, pgSchema } = await import("@meridian/db");
+  const { sql } = await import("drizzle-orm");
+  const db = getDb();
+
+  // Record response as audit log
+  await db.insert(pgSchema.auditLogs).values({
+    userId,
+    action: `request.respond.${body.type}`,
+    entityType: "request",
+    entityId: requestId,
+    detail: { type: body.type, message: body.message },
+  });
+
+  // Update request status to relaying
+  await db.execute(sql`UPDATE requests SET status = 'relaying', updated_at = NOW() WHERE id = ${requestId} AND status = 'pending'`);
+
+  return c.json({ success: true });
+});
+
 requestRoutes.get("/paths/:fromId/:toId", requireAuth, async (c) => {
   const paths = await neo4jQueries.findRelayPaths(
     c.req.param("fromId"),
