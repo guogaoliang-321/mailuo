@@ -109,14 +109,13 @@ export default function LoginPage() {
           </button>
 
           <p className="text-xs text-white/25 text-center pt-1">
-            没有账号？需要{" "}
+            没有账号？{" "}
             <Link
               href="/invite"
               className="text-[#D4A853]/70 hover:text-[#D4A853] transition-colors"
             >
-              邀请码
-            </Link>{" "}
-            注册
+              注册
+            </Link>
           </p>
         </form>
 
