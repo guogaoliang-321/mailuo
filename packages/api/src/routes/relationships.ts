@@ -1,5 +1,5 @@
 import { Hono } from "hono";
-import { nanoid } from "nanoid";
+
 import { neo4jQueries } from "@meridian/db";
 import { createRelationshipSchema } from "@meridian/shared";
 import { requireAuth } from "../middleware/auth.js";
@@ -46,7 +46,7 @@ relationshipRoutes.post("/", async (c) => {
     return c.json({ success: false, error: parsed.error.errors[0].message }, 400);
   }
 
-  const id = nanoid();
+  const id = crypto.randomUUID();
   await neo4jQueries.createRelationshipNode({
     id,
     ownerId: c.get("userId"),

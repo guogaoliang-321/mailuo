@@ -1,5 +1,5 @@
 import { Hono } from "hono";
-import { nanoid } from "nanoid";
+
 import { neo4jQueries } from "@meridian/db";
 import { createRequestSchema, respondRequestSchema } from "@meridian/shared";
 import { requireAuth } from "../middleware/auth.js";
@@ -26,7 +26,7 @@ requestRoutes.post("/", async (c) => {
     return c.json({ success: false, error: parsed.error.errors[0].message }, 400);
   }
 
-  const id = nanoid();
+  const id = crypto.randomUUID();
   await neo4jQueries.createRequestNode({
     id,
     title: parsed.data.title,
@@ -38,7 +38,7 @@ requestRoutes.post("/", async (c) => {
 
   // Create merit event for request initiation
   await neo4jQueries.createMeritEvent({
-    id: nanoid(),
+    id: crypto.randomUUID(),
     projectId: parsed.data.targetProjectId ?? id,
     userId: c.get("userId"),
     role: "request_initiator",
@@ -64,7 +64,7 @@ requestRoutes.post("/:id/consent", requireAuth, async (c) => {
 
   // Create merit event for relay
   await neo4jQueries.createMeritEvent({
-    id: nanoid(),
+    id: crypto.randomUUID(),
     projectId: c.req.param("id"),
     userId: c.get("userId"),
     role: "relay_intermediary",
