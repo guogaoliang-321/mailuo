@@ -11,13 +11,14 @@
     "clean": "rm -rf dist"
   },
   "dependencies": {
-    "@hono/node-server": "^1.14.0",
+    "@hono/node-server": "^1.19.14",
     "@meridian/db": "workspace:*",
     "@meridian/shared": "workspace:*",
     "@node-rs/argon2": "^2.0.2",
     "dotenv": "^17.4.2",
     "hono": "^4.7.0",
-    "nanoid": "^5.1.0"
+    "nanoid": "^5.1.0",
+    "serve-static": "^2.2.1"
   },
   "devDependencies": {
     "@types/node": "^22.0.0",
