@@ -38,7 +38,7 @@ app.route("/api/v1/merit", meritRoutes);
 app.route("/api/v1/admin", adminRoutes);
 app.route("/api/v1/recommendations", recommendationRoutes);
 
-const port = Number(process.env.PORT ?? 4000);
+const port = Number(process.env.API_PORT ?? 4000);
 
 serve({ fetch: app.fetch, port }, () => {
   console.log(`[meridian] API server running on http://localhost:${port}`);
