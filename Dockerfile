@@ -19,13 +19,15 @@ COPY tsconfig.base.json ./
 RUN pnpm --filter @meridian/shared build \
  && pnpm --filter @meridian/db build \
  && pnpm --filter @meridian/api build
-# Build web (static export)
+# Build web
 ENV NEXT_TELEMETRY_DISABLED=1
 RUN pnpm --filter @meridian/web build
 
 # ── Runtime stage ──
 FROM node:22-slim
 WORKDIR /app
+
+# API
 COPY --from=build /app/node_modules ./node_modules
 COPY --from=build /app/packages/shared/dist ./packages/shared/dist
 COPY --from=build /app/packages/shared/package.json ./packages/shared/
@@ -34,9 +36,11 @@ COPY --from=build /app/packages/db/package.json ./packages/db/
 COPY --from=build /app/packages/db/src/pg ./packages/db/src/pg
 COPY --from=build /app/packages/api/dist ./packages/api/dist
 COPY --from=build /app/packages/api/package.json ./packages/api/
-COPY --from=build /app/packages/web/.next/standalone ./web-standalone
-COPY --from=build /app/packages/web/.next/static ./web-standalone/packages/web/.next/static
 COPY --from=build /app/package.json ./
+
+# Next.js standalone (keeps its own directory structure)
+COPY --from=build /app/packages/web/.next/standalone ./nextapp
+COPY --from=build /app/packages/web/.next/static ./nextapp/packages/web/.next/static
 
 ENV NODE_ENV=production
 EXPOSE 8080

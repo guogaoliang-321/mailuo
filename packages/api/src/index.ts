@@ -70,7 +70,7 @@ const port = Number(process.env.PORT ?? 8080);
 import { spawn } from "node:child_process";
 import { existsSync } from "node:fs";
 
-const nextServerPath = "/app/web-standalone/packages/web/server.js";
+const nextServerPath = "/app/nextapp/packages/web/server.js";
 if (existsSync(nextServerPath)) {
   const next = spawn("node", [nextServerPath], {
     env: { ...process.env, PORT: "3000", HOSTNAME: "0.0.0.0" },
