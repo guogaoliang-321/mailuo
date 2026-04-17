@@ -44,15 +44,21 @@ app.all("*", async (c) => {
   const url = new URL(c.req.url);
   const target = `http://127.0.0.1:${nextPort}${url.pathname}${url.search}`;
   try {
-    const headers = new Headers();
+    const reqHeaders: Record<string, string> = {};
     const cookie = c.req.header("cookie");
-    if (cookie) headers.set("cookie", cookie);
-    headers.set("host", url.host);
-    const body = c.req.method !== "GET" && c.req.method !== "HEAD" ? await c.req.text() : undefined;
-    const resp = await fetch(target, { method: c.req.method, headers, body });
-    const respHeaders = new Headers();
-    resp.headers.forEach((v, k) => respHeaders.set(k, v));
-    return new Response(resp.body, { status: resp.status, headers: respHeaders });
+    if (cookie) reqHeaders["cookie"] = cookie;
+    reqHeaders["host"] = url.host;
+    const ct = c.req.header("content-type");
+    if (ct) reqHeaders["content-type"] = ct;
+
+    const body = c.req.method !== "GET" && c.req.method !== "HEAD" ? await c.req.arrayBuffer() : undefined;
+    const resp = await fetch(target, { method: c.req.method, headers: reqHeaders, body });
+    const respBody = await resp.arrayBuffer();
+    const respHeaders: Record<string, string> = {};
+    resp.headers.forEach((v, k) => {
+      if (k !== "transfer-encoding") respHeaders[k] = v;
+    });
+    return new Response(respBody, { status: resp.status, headers: respHeaders });
   } catch {
     return c.text("Frontend loading...", 502);
   }
