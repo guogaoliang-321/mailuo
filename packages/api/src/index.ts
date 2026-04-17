@@ -38,47 +38,7 @@ app.route("/api/v1/merit", meritRoutes);
 app.route("/api/v1/admin", adminRoutes);
 app.route("/api/v1/recommendations", recommendationRoutes);
 
-// Proxy non-API requests to Next.js standalone server
-app.all("*", async (c) => {
-  const nextPort = 3000;
-  const url = new URL(c.req.url);
-  const target = `http://127.0.0.1:${nextPort}${url.pathname}${url.search}`;
-  try {
-    const reqHeaders: Record<string, string> = {};
-    const cookie = c.req.header("cookie");
-    if (cookie) reqHeaders["cookie"] = cookie;
-    reqHeaders["host"] = url.host;
-    const ct = c.req.header("content-type");
-    if (ct) reqHeaders["content-type"] = ct;
-
-    const body = c.req.method !== "GET" && c.req.method !== "HEAD" ? await c.req.arrayBuffer() : undefined;
-    const resp = await fetch(target, { method: c.req.method, headers: reqHeaders, body });
-    const respBody = await resp.arrayBuffer();
-    const respHeaders: Record<string, string> = {};
-    resp.headers.forEach((v, k) => {
-      if (k !== "transfer-encoding") respHeaders[k] = v;
-    });
-    return new Response(respBody, { status: resp.status, headers: respHeaders });
-  } catch {
-    return c.text("Frontend loading...", 502);
-  }
-});
-
-const port = Number(process.env.PORT ?? 8080);
-
-// Start Next.js standalone server in background
-import { spawn } from "node:child_process";
-import { existsSync } from "node:fs";
-
-const nextServerPath = "/app/nextapp/packages/web/server.js";
-if (existsSync(nextServerPath)) {
-  const next = spawn("node", [nextServerPath], {
-    env: { ...process.env, PORT: "3000", HOSTNAME: "0.0.0.0" },
-    stdio: "inherit",
-  });
-  next.on("error", (e) => console.error("[next] failed to start:", e));
-  console.log("[meridian] Next.js standalone server starting on port 3000");
-}
+const port = Number(process.env.PORT ?? 4000);
 
 serve({ fetch: app.fetch, port }, () => {
   console.log(`[meridian] API server running on http://localhost:${port}`);
