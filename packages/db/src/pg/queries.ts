@@ -114,13 +114,18 @@ export async function createProjectNode(project: {
 
 export async function getVisibleProjects(userId: string) {
   const db = getDb();
-  // Own projects + projects in circles user belongs to
+  // Own projects + projects whose circle_id matches + projects from users in same circles
   const rows = await db.execute(sql`
     SELECT DISTINCT p.*, u.display_name AS "contributorName"
     FROM projects p
     JOIN users u ON u.id = p.contributor_id
     WHERE p.contributor_id = ${userId}
        OR p.circle_id IN (SELECT circle_id FROM circle_members WHERE user_id = ${userId})
+       OR p.contributor_id IN (
+         SELECT DISTINCT cm2.user_id FROM circle_members cm1
+         JOIN circle_members cm2 ON cm1.circle_id = cm2.circle_id
+         WHERE cm1.user_id = ${userId}
+       )
     ORDER BY p.created_at DESC
   `);
   return rows;
@@ -181,8 +186,13 @@ export async function getVisibleRelationships(userId: string) {
     JOIN users u ON u.id = r.owner_id
     WHERE r.owner_id = ${userId}
        OR (r.visibility = 'designated' AND r.designated_viewer_ids::jsonb @> ${JSON.stringify([userId])}::jsonb)
-       OR (r.visibility IN ('circle','fuzzy') AND r.circle_id IN (
-            SELECT circle_id FROM circle_members WHERE user_id = ${userId}
+       OR (r.visibility IN ('circle','fuzzy') AND (
+            r.circle_id IN (SELECT circle_id FROM circle_members WHERE user_id = ${userId})
+            OR r.owner_id IN (
+              SELECT DISTINCT cm2.user_id FROM circle_members cm1
+              JOIN circle_members cm2 ON cm1.circle_id = cm2.circle_id
+              WHERE cm1.user_id = ${userId}
+            )
           ))
     ORDER BY r.created_at DESC
   `);
