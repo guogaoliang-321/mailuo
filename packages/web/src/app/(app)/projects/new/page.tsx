@@ -126,10 +126,10 @@ export default function NewProjectPage() {
             value={form.decisionMakerClue}
             onChange={(e) => update("decisionMakerClue", e.target.value)}
             className="input-dark w-full"
-            placeholder="可选，将加密存储"
+            placeholder="可选，仅圈内可见"
           />
           <p className="text-[11px] text-white/25 mt-1.5">
-            此信息将使用 AES-256 加密存储，仅授权人员可见
+            此信息仅对圈内成员可见
           </p>
         </div>
 

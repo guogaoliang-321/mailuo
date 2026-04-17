@@ -132,7 +132,7 @@ export default function GraphPage() {
       ctx.clearRect(0, 0, dimensions.width, dimensions.height);
 
       // Draw links
-      ctx.strokeStyle = "#e2e8f0";
+      ctx.strokeStyle = "rgba(255,255,255,0.08)";
       ctx.lineWidth = 1;
       for (const link of links) {
         const source = nodes.find((n) => n.id === link.source);
@@ -188,7 +188,7 @@ export default function GraphPage() {
         ctx.stroke();
 
         // Label
-        ctx.fillStyle = "#1e293b";
+        ctx.fillStyle = "rgba(255,255,255,0.9)";
         ctx.font = `${isHovered ? "600" : "500"} 11px system-ui, -apple-system, sans-serif`;
         ctx.textAlign = "center";
         ctx.fillText(node.label, node.x, node.y + r + 14);
@@ -241,28 +241,28 @@ export default function GraphPage() {
     <div className="space-y-6">
       <div className="page-header">
         <div>
-          <h1 className="text-xl font-bold text-gray-900">关系图谱</h1>
-          <p className="text-sm text-gray-500 mt-0.5">
+          <h1 className="text-xl font-bold text-white/90">关系图谱</h1>
+          <p className="text-sm text-white/40 mt-0.5">
             你的人脉网络可视化
           </p>
         </div>
       </div>
 
-      <div className="card overflow-hidden relative">
+      <div className="glass-card overflow-hidden relative">
         {isLoading ? (
           <div className="flex items-center justify-center h-[500px]">
             <div className="flex flex-col items-center gap-3">
-              <div className="w-12 h-12 rounded-full border-2 border-brand-200 border-t-brand-600 animate-spin" />
-              <span className="text-sm text-gray-400">加载图谱数据...</span>
+              <div className="w-12 h-12 rounded-full border-2 border-brand-200 border-t-[#5AC8FA] animate-spin" />
+              <span className="text-sm text-white/30">加载图谱数据...</span>
             </div>
           </div>
         ) : !hasData ? (
           <div className="empty-state h-[500px]">
             <Network className="w-16 h-16 text-gray-200 mb-4" />
-            <p className="text-sm font-medium text-gray-500">
+            <p className="text-sm font-medium text-white/40">
               暂无图谱数据
             </p>
-            <p className="text-xs text-gray-400 mt-1">
+            <p className="text-xs text-white/30 mt-1">
               添加圈子和关系后，图谱将自动生成
             </p>
           </div>
@@ -277,12 +277,12 @@ export default function GraphPage() {
             />
 
             {/* Legend */}
-            <div className="absolute bottom-4 left-4 flex items-center gap-4 bg-white/90 backdrop-blur-sm rounded-xl px-4 py-2 border border-gray-200/50">
-              <div className="flex items-center gap-2 text-xs text-gray-500">
+            <div className="absolute bottom-4 left-4 flex items-center gap-4 bg-white/[0.08] backdrop-blur-sm rounded-xl px-4 py-2 border border-white/[0.1]">
+              <div className="flex items-center gap-2 text-xs text-white/40">
                 <div className="w-3 h-3 rounded-full bg-gradient-to-br from-indigo-400 to-indigo-600" />
                 <span>圈子</span>
               </div>
-              <div className="flex items-center gap-2 text-xs text-gray-500">
+              <div className="flex items-center gap-2 text-xs text-white/40">
                 <div className="w-3 h-3 rounded-full bg-gradient-to-br from-purple-400 to-purple-600" />
                 <span>成员</span>
               </div>
@@ -290,14 +290,14 @@ export default function GraphPage() {
 
             {/* Hover info */}
             {hoveredNode && (
-              <div className="absolute top-4 right-4 bg-white/95 backdrop-blur-sm rounded-xl px-4 py-3 border border-gray-200/50 shadow-sm">
+              <div className="absolute top-4 right-4 bg-white/[0.10] backdrop-blur-sm rounded-xl px-4 py-3 border border-white/[0.1] shadow-sm">
                 <div className="flex items-center gap-2">
                   <Info className="w-4 h-4 text-brand-500" />
-                  <span className="text-sm font-medium text-gray-900">
+                  <span className="text-sm font-medium text-white/90">
                     {hoveredNode.label}
                   </span>
                 </div>
-                <span className="text-xs text-gray-400 mt-1 block">
+                <span className="text-xs text-white/30 mt-1 block">
                   {hoveredNode.type === "circle" ? "圈子" : "成员"}
                 </span>
               </div>

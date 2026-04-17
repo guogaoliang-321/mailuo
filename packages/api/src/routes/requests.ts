@@ -1,6 +1,7 @@
 import { Hono } from "hono";
 
-import { neo4jQueries } from "@meridian/db";
+import { neo4jQueries, getDb, pgSchema } from "@meridian/db";
+import { sql } from "drizzle-orm";
 import { createRequestSchema, respondRequestSchema } from "@meridian/shared";
 import { requireAuth } from "../middleware/auth.js";
 import type { AppEnv } from "../types.js";
@@ -91,8 +92,6 @@ requestRoutes.post("/:id/respond", requireAuth, async (c) => {
   const requestId = c.req.param("id");
   const userId = c.get("userId");
 
-  const { getDb, pgSchema } = await import("@meridian/db");
-  const { sql } = await import("drizzle-orm");
   const db = getDb();
 
   // Record response as audit log

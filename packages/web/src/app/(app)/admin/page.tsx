@@ -69,12 +69,12 @@ export default function AdminPage() {
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="text-xl font-bold text-gray-900">管理后台</h1>
-        <p className="text-sm text-gray-500 mt-0.5">系统管理与配置</p>
+        <h1 className="text-xl font-bold text-white/90">管理后台</h1>
+        <p className="text-sm text-white/40 mt-0.5">系统管理与配置</p>
       </div>
 
       {/* Tabs */}
-      <div className="flex gap-1 p-1 bg-gray-100 rounded-xl w-fit">
+      <div className="flex gap-1 p-1 bg-white/[0.06] rounded-xl w-fit">
         {tabs.map((t) => {
           const Icon = t.icon;
           return (
@@ -83,8 +83,8 @@ export default function AdminPage() {
               onClick={() => setActiveTab(t.key)}
               className={`flex items-center gap-2 px-4 py-2 text-sm font-medium rounded-lg transition-all ${
                 activeTab === t.key
-                  ? "bg-white text-gray-900 shadow-sm"
-                  : "text-gray-500 hover:text-gray-700"
+                  ? "bg-white/10 text-white/90 shadow-sm"
+                  : "text-white/40 hover:text-gray-700"
               }`}
             >
               <Icon className="w-4 h-4" />
@@ -99,7 +99,7 @@ export default function AdminPage() {
           <button
             onClick={() => createInvite.mutate()}
             disabled={createInvite.isPending}
-            className="btn-primary"
+            className="btn-gold"
           >
             <Plus className="w-4 h-4" />
             {createInvite.isPending ? "生成中..." : "生成邀请码"}
@@ -109,28 +109,28 @@ export default function AdminPage() {
             {(invites?.data ?? []).map((inv) => (
               <div
                 key={inv.id}
-                className="card p-4 flex items-center justify-between"
+                className="glass-card p-4 flex items-center justify-between"
               >
                 <div className="flex items-center gap-3">
-                  <code className="text-sm font-mono bg-brand-50 text-brand-700 px-3 py-1.5 rounded-lg">
+                  <code className="text-sm font-mono bg-[#D4A853]/10 text-[#D4A853] px-3 py-1.5 rounded-lg">
                     {inv.code}
                   </code>
                   <button
                     onClick={() => copyCode(inv.code)}
-                    className="p-1.5 rounded-lg hover:bg-gray-100 transition-colors"
+                    className="p-1.5 rounded-lg hover:bg-white/[0.06] transition-colors"
                     title="复制"
                   >
                     {copiedCode === inv.code ? (
-                      <Check className="w-4 h-4 text-green-500" />
+                      <Check className="w-4 h-4 text-[#30D158]" />
                     ) : (
-                      <Copy className="w-4 h-4 text-gray-400" />
+                      <Copy className="w-4 h-4 text-white/30" />
                     )}
                   </button>
-                  <span className="text-xs text-gray-400">
+                  <span className="text-xs text-white/30">
                     {inv.useCount}/{inv.maxUses} 已使用
                   </span>
                 </div>
-                <span className="text-xs text-gray-400">
+                <span className="text-xs text-white/30">
                   {inv.expiresAt
                     ? `${new Date(inv.expiresAt).toLocaleDateString("zh-CN")} 过期`
                     : "永不过期"}
@@ -146,23 +146,23 @@ export default function AdminPage() {
           {(users?.data ?? []).map((u) => (
             <div
               key={u.id}
-              className="card p-4 flex items-center justify-between"
+              className="glass-card p-4 flex items-center justify-between"
             >
               <div className="flex items-center gap-3">
-                <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-brand-100 to-brand-200 flex items-center justify-center text-brand-700 text-xs font-bold">
+                <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-[#5AC8FA]/20 to-[#5AC8FA]/10 flex items-center justify-center text-[#5AC8FA] text-xs font-bold">
                   {u.displayName.charAt(0)}
                 </div>
                 <div>
-                  <span className="font-medium text-sm text-gray-900">
+                  <span className="font-medium text-sm text-white/90">
                     {u.displayName}
                   </span>
-                  <span className="text-xs text-gray-400 ml-2">
+                  <span className="text-xs text-white/30 ml-2">
                     {u.email}
                   </span>
                 </div>
               </div>
               <span
-                className={`badge ${u.role === "admin" ? "bg-brand-100 text-brand-700" : "bg-gray-100 text-gray-600"}`}
+                className={`badge ${u.role === "admin" ? "bg-[#D4A853]/15 text-[#D4A853]" : "bg-white/[0.06] text-white/50"}`}
               >
                 {u.role === "admin" ? (
                   <>
@@ -178,12 +178,12 @@ export default function AdminPage() {
       )}
 
       {activeTab === "audit" && (
-        <div className="card empty-state">
+        <div className="glass-card empty-state">
           <FileText className="w-12 h-12 text-gray-300 mb-3" />
-          <p className="text-sm font-medium text-gray-500">
+          <p className="text-sm font-medium text-white/40">
             审计日志查看功能
           </p>
-          <p className="text-xs text-gray-400 mt-1">开发中...</p>
+          <p className="text-xs text-white/30 mt-1">开发中...</p>
         </div>
       )}
     </div>

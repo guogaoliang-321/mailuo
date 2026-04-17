@@ -13,8 +13,8 @@ recommendationRoutes.use("*", requireAuth);
  */
 recommendationRoutes.get("/project/:id/matches", async (c) => {
   const matches = await neo4jQueries.getMatchingRelationships(
-    c.get("userId"),
     c.req.param("id"),
+    c.get("userId"),
   );
   return c.json({ success: true, data: matches });
 });
