@@ -50,3 +50,16 @@ projectRoutes.patch("/:id", async (c) => {
   await neo4jQueries.updateProjectNode(c.req.param("id"), parsed.data);
   return c.json({ success: true });
 });
+
+// Comments
+projectRoutes.get("/:id/comments", async (c) => {
+  const comments = await neo4jQueries.getComments("project", c.req.param("id"));
+  return c.json({ success: true, data: comments });
+});
+
+projectRoutes.post("/:id/comments", async (c) => {
+  const body = await c.req.json() as { content: string };
+  if (!body.content?.trim()) return c.json({ success: false, error: "评论不能为空" }, 400);
+  const comment = await neo4jQueries.addComment("project", c.req.param("id"), c.get("userId"), body.content.trim());
+  return c.json({ success: true, data: comment }, 201);
+});

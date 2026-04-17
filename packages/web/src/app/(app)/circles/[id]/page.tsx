@@ -1,6 +1,6 @@
 "use client";
 
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { api } from "@/lib/api";
 import { useParams } from "next/navigation";
 import Link from "next/link";
@@ -250,6 +250,86 @@ export default function CircleDetailPage() {
         ) : (
           <div className="text-center py-6 text-white/20 text-sm">暂无圈内关系</div>
         )}
+      </div>
+
+      {/* Circle Chat / Discussion */}
+      <CircleChat circleId={circleId} />
+    </div>
+  );
+}
+
+function CircleChat({ circleId }: { circleId: string }) {
+  const { user } = useAuth();
+  const [msg, setMsg] = useState("");
+  const [sending, setSending] = useState(false);
+  const queryClient = useQueryClient();
+
+  const { data } = useQuery({
+    queryKey: ["circle-messages", circleId],
+    queryFn: () => api.get<Array<{ id: string; userName: string; userId: string; content: string; created_at: string }>>(`/circles/${circleId}/messages`),
+    refetchInterval: 10000, // Auto refresh every 10s
+  });
+
+  const messages = [...(data?.data ?? [])].reverse(); // Show oldest first
+
+  const handleSend = async () => {
+    if (!msg.trim()) return;
+    setSending(true);
+    await api.post(`/circles/${circleId}/messages`, { content: msg.trim() });
+    setSending(false);
+    setMsg("");
+    queryClient.invalidateQueries({ queryKey: ["circle-messages", circleId] });
+  };
+
+  const COLORS = ["#D4A853", "#5AC8FA", "#30D158", "#BF5AF2", "#FF9F0A", "#FF375F"];
+
+  return (
+    <div className="glass-card p-5" style={{ marginBottom: 0 }}>
+      <div className="text-sm font-semibold text-white/80 mb-4">💬 圈内讨论</div>
+
+      <div className="space-y-3 max-h-[300px] overflow-y-auto mb-4" style={{ scrollbarWidth: "thin" }}>
+        {messages.length === 0 ? (
+          <div className="text-center py-8 text-white/20 text-sm">还没有消息，说点什么吧</div>
+        ) : (
+          messages.map((m, i) => {
+            const isMe = m.userId === user?.id;
+            const color = COLORS[m.userName?.charCodeAt(0) % COLORS.length] ?? COLORS[0];
+            return (
+              <div key={m.id} className={`flex gap-2.5 ${isMe ? "flex-row-reverse" : ""}`}>
+                <div className="w-7 h-7 rounded-full text-[10px] font-bold flex items-center justify-center shrink-0"
+                  style={{ backgroundColor: `${color}20`, color }}>
+                  {m.userName?.[0] ?? "?"}
+                </div>
+                <div className={`max-w-[75%] ${isMe ? "text-right" : ""}`}>
+                  <div className="text-[10px] text-white/30 mb-1">
+                    {m.userName} · {m.created_at ? new Date(m.created_at).toLocaleTimeString("zh-CN", { hour: "2-digit", minute: "2-digit" }) : ""}
+                  </div>
+                  <div className={`inline-block px-3 py-2 rounded-2xl text-sm leading-relaxed ${
+                    isMe
+                      ? "bg-[#D4A853]/20 text-white/90 rounded-tr-md"
+                      : "bg-white/[0.06] text-white/70 rounded-tl-md"
+                  }`}>
+                    {m.content}
+                  </div>
+                </div>
+              </div>
+            );
+          })
+        )}
+      </div>
+
+      <div className="flex gap-2">
+        <input
+          type="text"
+          value={msg}
+          onChange={(e) => setMsg(e.target.value)}
+          placeholder="发消息..."
+          className="input-dark flex-1 text-sm py-2.5"
+          onKeyDown={(e) => e.key === "Enter" && handleSend()}
+        />
+        <button onClick={handleSend} disabled={sending || !msg.trim()} className="btn-gold text-xs px-5 py-2.5">
+          {sending ? "..." : "发送"}
+        </button>
       </div>
     </div>
   );

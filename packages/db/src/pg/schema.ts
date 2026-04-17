@@ -131,6 +131,25 @@ export const meritEvents = pgTable("merit_events", {
   createdAt: timestamp("created_at").defaultNow().notNull(),
 });
 
+// Comments on projects/relationships/requests
+export const comments = pgTable("comments", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  entityType: varchar("entity_type", { length: 30 }).notNull(), // 'project' | 'relationship' | 'request'
+  entityId: uuid("entity_id").notNull(),
+  userId: uuid("user_id").references(() => users.id).notNull(),
+  content: text("content").notNull(),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+
+// Circle messages (simple chat)
+export const circleMessages = pgTable("circle_messages", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  circleId: uuid("circle_id").references(() => circles.id).notNull(),
+  userId: uuid("user_id").references(() => users.id).notNull(),
+  content: text("content").notNull(),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+
 export const auditLogs = pgTable("audit_logs", {
   id: bigserial("id", { mode: "number" }).primaryKey(),
   userId: uuid("user_id").references(() => users.id),

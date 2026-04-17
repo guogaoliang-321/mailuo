@@ -451,3 +451,42 @@ export async function getDashboardStats(userId: string) {
   const [rCount] = await db.execute(sql`SELECT count(*)::int AS c FROM requests WHERE initiator_id = ${userId}`);
   return { projects: pCount?.c ?? 0, circles: cCount?.c ?? 0, requests: rCount?.c ?? 0 };
 }
+
+// ═══ Comments ═══
+
+export async function addComment(entityType: string, entityId: string, userId: string, content: string) {
+  const db = getDb();
+  const [row] = await db.insert(s.comments).values({ entityType, entityId, userId, content }).returning();
+  return row;
+}
+
+export async function getComments(entityType: string, entityId: string) {
+  const db = getDb();
+  return db.execute(sql`
+    SELECT c.*, u.display_name AS "userName", c.user_id AS "userId",
+           c.entity_type AS "entityType", c.entity_id AS "entityId"
+    FROM comments c JOIN users u ON u.id = c.user_id
+    WHERE c.entity_type = ${entityType} AND c.entity_id = ${entityId}
+    ORDER BY c.created_at ASC
+  `);
+}
+
+// ═══ Circle Messages ═══
+
+export async function addCircleMessage(circleId: string, userId: string, content: string) {
+  const db = getDb();
+  const [row] = await db.insert(s.circleMessages).values({ circleId, userId, content }).returning();
+  return row;
+}
+
+export async function getCircleMessages(circleId: string, limit = 50) {
+  const db = getDb();
+  return db.execute(sql`
+    SELECT m.*, u.display_name AS "userName", m.user_id AS "userId",
+           m.circle_id AS "circleId"
+    FROM circle_messages m JOIN users u ON u.id = m.user_id
+    WHERE m.circle_id = ${circleId}
+    ORDER BY m.created_at DESC
+    LIMIT ${limit}
+  `);
+}

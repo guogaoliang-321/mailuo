@@ -142,12 +142,15 @@ export default function DashboardPage() {
           </p>
         </div>
         <div className="flex items-center gap-2">
-          <button className="pill w-9 h-9 flex items-center justify-center text-white/40 hover:text-white/70 transition-colors">
+          <Link href="/requests" className="glass w-9 h-9 flex items-center justify-center text-white/40 hover:text-white/70 transition-colors rounded-xl relative">
             <Bell className="w-4 h-4" />
-          </button>
-          <button className="pill w-9 h-9 flex items-center justify-center text-white/40 hover:text-white/70 transition-colors">
+            {pendingRequests > 0 && (
+              <span className="absolute -top-1 -right-1 w-4 h-4 bg-[#FF375F] rounded-full text-[9px] text-white flex items-center justify-center font-bold">{pendingRequests}</span>
+            )}
+          </Link>
+          <Link href="/settings" className="glass w-9 h-9 flex items-center justify-center text-white/40 hover:text-white/70 transition-colors rounded-xl">
             <Settings className="w-4 h-4" />
-          </button>
+          </Link>
         </div>
       </div>
 
@@ -310,6 +313,46 @@ export default function DashboardPage() {
                 <span className="ml-auto text-white/20">{p.region}</span>
               </div>
             </Link>
+          ))}
+        </div>
+      </div>
+
+      {/* Latest Resources */}
+      <div>
+        <div className="flex items-center justify-between mb-3">
+          <h2 className="text-sm font-semibold text-white/80">🤝 最新资源</h2>
+          <Link href="/relationships" className="text-xs text-[#D4A853]/60 hover:text-[#D4A853] flex items-center gap-1 transition-colors">
+            查看全部 <ArrowRight className="w-3 h-3" />
+          </Link>
+        </div>
+        <div className="flex gap-3 overflow-x-auto pb-2 -mx-1 px-1 snap-x snap-mandatory" style={{ scrollbarWidth: "none" }}>
+          {relList.filter((r) => !r._fuzzy).slice(0, 6).map((r) => (
+            <div
+              key={r.id}
+              className="glass-card p-4 min-w-[240px] max-w-[260px] shrink-0 snap-start"
+              style={{ marginBottom: 0 }}
+            >
+              <div className="flex items-center gap-2 mb-2">
+                <div className="w-8 h-8 rounded-full bg-[#BF5AF2]/15 text-[#BF5AF2] text-xs font-bold flex items-center justify-center shrink-0">
+                  {(r.alias ?? "?")[0]}
+                </div>
+                <div className="min-w-0">
+                  <div className="text-sm text-white/80 font-medium truncate">{r.alias}</div>
+                </div>
+              </div>
+              <div className="flex flex-wrap gap-1 mb-2">
+                {(r.domainTags ?? []).map((t: string) => (
+                  <span key={t} className="text-[10px] px-1.5 py-0.5 rounded bg-[#5AC8FA]/10 text-[#5AC8FA]/80">{t}</span>
+                ))}
+              </div>
+              {r.closeness != null && (
+                <div className="flex items-center gap-1">
+                  {[1,2,3,4,5].map((i) => (
+                    <div key={i} className={`w-1.5 h-1.5 rounded-full ${i <= (r.closeness ?? 0) ? "bg-[#D4A853]" : "bg-white/10"}`} style={{ boxShadow: i <= (r.closeness ?? 0) ? "0 0 4px rgba(212,168,83,0.4)" : "none" }} />
+                  ))}
+                </div>
+              )}
+            </div>
           ))}
         </div>
       </div>

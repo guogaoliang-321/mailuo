@@ -78,3 +78,16 @@ circleRoutes.post("/join", async (c) => {
   }
   return c.json({ success: true, data: { circleName: result.circleName } });
 });
+
+// Circle messages
+circleRoutes.get("/:id/messages", async (c) => {
+  const messages = await neo4jQueries.getCircleMessages(c.req.param("id"));
+  return c.json({ success: true, data: messages });
+});
+
+circleRoutes.post("/:id/messages", async (c) => {
+  const body = await c.req.json() as { content: string };
+  if (!body.content?.trim()) return c.json({ success: false, error: "消息不能为空" }, 400);
+  const msg = await neo4jQueries.addCircleMessage(c.req.param("id"), c.get("userId"), body.content.trim());
+  return c.json({ success: true, data: msg }, 201);
+});

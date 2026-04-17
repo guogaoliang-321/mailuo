@@ -1,10 +1,11 @@
 "use client";
 
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { api } from "@/lib/api";
 import { useParams } from "next/navigation";
 import Link from "next/link";
 import { useAuth } from "@/lib/auth";
+import { useState } from "react";
 import { PROJECT_STAGE_LABELS, CLOSENESS_LABELS } from "@meridian/shared";
 
 interface ProjectDetail {
@@ -204,10 +205,75 @@ export default function ProjectDetailPage() {
         </div>
       )}
 
+      {/* Comments */}
+      <CommentsSection entityType="project" entityId={id} />
+
       {/* Action Button */}
       <Link href={`/requests/new?projectId=${id}`} className="btn-gold w-full py-3.5 flex items-center justify-center gap-2 text-center">
         ⇌ 发起资源对接
       </Link>
+    </div>
+  );
+}
+
+function CommentsSection({ entityType, entityId }: { entityType: string; entityId: string }) {
+  const { user } = useAuth();
+  const [content, setContent] = useState("");
+  const [posting, setPosting] = useState(false);
+  const queryClient = useQueryClient();
+
+  const { data } = useQuery({
+    queryKey: ["comments", entityType, entityId],
+    queryFn: () => api.get<Array<{ id: string; userName: string; userId: string; content: string; created_at: string }>>(`/${entityType}s/${entityId}/comments`),
+  });
+
+  const comments = data?.data ?? [];
+
+  const handlePost = async () => {
+    if (!content.trim()) return;
+    setPosting(true);
+    await api.post(`/${entityType}s/${entityId}/comments`, { content: content.trim() });
+    setPosting(false);
+    setContent("");
+    queryClient.invalidateQueries({ queryKey: ["comments", entityType, entityId] });
+  };
+
+  return (
+    <div className="glass-card p-5" style={{ marginBottom: 0 }}>
+      <div className="text-sm font-semibold text-white/80 mb-4">💬 评论 ({comments.length})</div>
+
+      {comments.length > 0 && (
+        <div className="space-y-3 mb-4">
+          {comments.map((c) => (
+            <div key={c.id} className="flex gap-3">
+              <div className="w-7 h-7 rounded-full bg-[#5AC8FA]/15 text-[#5AC8FA] text-[10px] font-bold flex items-center justify-center shrink-0 mt-0.5">
+                {c.userName?.[0] ?? "?"}
+              </div>
+              <div className="flex-1 min-w-0">
+                <div className="flex items-center gap-2 text-xs">
+                  <span className="text-white/70 font-medium">{c.userName}</span>
+                  <span className="text-white/20">{c.created_at ? new Date(c.created_at).toLocaleDateString("zh-CN") : ""}</span>
+                </div>
+                <p className="text-sm text-white/60 mt-1 leading-relaxed">{c.content}</p>
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+
+      <div className="flex gap-2">
+        <input
+          type="text"
+          value={content}
+          onChange={(e) => setContent(e.target.value)}
+          placeholder="写评论..."
+          className="input-dark flex-1 text-sm py-2"
+          onKeyDown={(e) => e.key === "Enter" && handlePost()}
+        />
+        <button onClick={handlePost} disabled={posting || !content.trim()} className="btn-gold text-xs px-4 py-2">
+          {posting ? "..." : "发送"}
+        </button>
+      </div>
     </div>
   );
 }

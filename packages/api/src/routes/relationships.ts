@@ -55,3 +55,16 @@ relationshipRoutes.post("/", async (c) => {
 
   return c.json({ success: true, data: { id } }, 201);
 });
+
+// Comments
+relationshipRoutes.get("/:id/comments", async (c) => {
+  const comments = await neo4jQueries.getComments("relationship", c.req.param("id"));
+  return c.json({ success: true, data: comments });
+});
+
+relationshipRoutes.post("/:id/comments", async (c) => {
+  const body = await c.req.json() as { content: string };
+  if (!body.content?.trim()) return c.json({ success: false, error: "评论不能为空" }, 400);
+  const comment = await neo4jQueries.addComment("relationship", c.req.param("id"), c.get("userId"), body.content.trim());
+  return c.json({ success: true, data: comment }, 201);
+});
