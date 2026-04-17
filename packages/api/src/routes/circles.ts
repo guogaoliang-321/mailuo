@@ -1,5 +1,4 @@
 import { Hono } from "hono";
-
 import { neo4jQueries } from "@meridian/db";
 import { createCircleSchema, inviteToCircleSchema } from "@meridian/shared";
 import { requireAuth } from "../middleware/auth.js";
@@ -42,7 +41,6 @@ circleRoutes.post("/:id/invite", async (c) => {
   if (!parsed.success) {
     return c.json({ success: false, error: parsed.error.errors[0].message }, 400);
   }
-
   await neo4jQueries.addCircleMember(c.req.param("id"), parsed.data.userId);
   return c.json({ success: true }, 201);
 });
@@ -50,4 +48,33 @@ circleRoutes.post("/:id/invite", async (c) => {
 circleRoutes.delete("/:id/members/:userId", async (c) => {
   await neo4jQueries.removeCircleMember(c.req.param("id"), c.req.param("userId"));
   return c.json({ success: true });
+});
+
+// ── Circle invite codes ──
+
+// Generate invite code for a circle
+circleRoutes.post("/:id/invite-code", async (c) => {
+  const circleId = c.req.param("id");
+  const code = crypto.randomUUID().slice(0, 8).toUpperCase();
+  const invite = await neo4jQueries.createCircleInviteCode(circleId, c.get("userId"), code);
+  return c.json({ success: true, data: invite }, 201);
+});
+
+// List invite codes for a circle
+circleRoutes.get("/:id/invite-codes", async (c) => {
+  const codes = await neo4jQueries.getCircleInviteCodes(c.req.param("id"));
+  return c.json({ success: true, data: codes });
+});
+
+// Join a circle by invite code
+circleRoutes.post("/join", async (c) => {
+  const body = await c.req.json();
+  const code = (body as { code?: string }).code;
+  if (!code) return c.json({ success: false, error: "请输入邀请码" }, 400);
+
+  const result = await neo4jQueries.joinCircleByCode(code, c.get("userId"));
+  if (!result.success) {
+    return c.json({ success: false, error: result.error }, 400);
+  }
+  return c.json({ success: true, data: { circleName: result.circleName } });
 });

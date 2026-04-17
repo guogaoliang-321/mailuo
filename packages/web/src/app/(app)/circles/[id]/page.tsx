@@ -51,6 +51,9 @@ export default function CircleDetailPage() {
   const { user } = useAuth();
   const [inviteEmail, setInviteEmail] = useState("");
   const [inviteMsg, setInviteMsg] = useState("");
+  const [generatingCode, setGeneratingCode] = useState(false);
+  const [circleCode, setCircleCode] = useState("");
+  const [codeCopied, setCodeCopied] = useState(false);
 
   const { data: circlesData } = useQuery({
     queryKey: ["circles"],
@@ -103,6 +106,46 @@ export default function CircleDetailPage() {
           <span>{isAdmin ? "你是管理员" : "成员"}</span>
         </div>
       </div>
+
+      {/* Invite Code (admin only) */}
+      {isAdmin && (
+        <div className="glass-card p-5" style={{ marginBottom: 0, borderColor: "rgba(212,168,83,0.2)" }}>
+          <div className="text-sm font-semibold text-[#D4A853] mb-3">🔗 邀请码</div>
+          <p className="text-xs text-white/35 mb-3">生成邀请码分享给朋友，对方在「我的圈子」页面输入即可加入</p>
+          {circleCode ? (
+            <div className="flex items-center gap-3">
+              <code className="flex-1 text-center py-3 rounded-xl bg-[#D4A853]/10 text-[#D4A853] text-lg font-mono font-bold tracking-widest border border-[#D4A853]/20">
+                {circleCode}
+              </code>
+              <button
+                onClick={() => {
+                  navigator.clipboard.writeText(circleCode);
+                  setCodeCopied(true);
+                  setTimeout(() => setCodeCopied(false), 2000);
+                }}
+                className="btn-glass text-xs px-4 py-3"
+              >
+                {codeCopied ? "已复制 ✓" : "复制"}
+              </button>
+            </div>
+          ) : (
+            <button
+              onClick={async () => {
+                setGeneratingCode(true);
+                const res = await api.post<{ code?: string }>(`/circles/${circleId}/invite-code`, {});
+                setGeneratingCode(false);
+                if (res.success && res.data) {
+                  setCircleCode((res.data as { code: string }).code);
+                }
+              }}
+              disabled={generatingCode}
+              className="btn-gold text-sm w-full py-2.5"
+            >
+              {generatingCode ? "生成中..." : "生成邀请码"}
+            </button>
+          )}
+        </div>
+      )}
 
       {/* Members */}
       <div className="glass-card p-5" style={{ marginBottom: 0 }}>

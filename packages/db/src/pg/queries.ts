@@ -66,6 +66,42 @@ export async function checkSameCircle(userIdA: string, userIdB: string): Promise
   return rows.length > 0;
 }
 
+// ═══ Circle Invite Codes ═══
+
+export async function createCircleInviteCode(circleId: string, createdBy: string, code: string, maxUses = 50, expiresInDays = 30) {
+  const db = getDb();
+  const [row] = await db.insert(s.circleInviteCodes).values({
+    circleId, code, createdBy, maxUses,
+    expiresAt: new Date(Date.now() + expiresInDays * 86400000),
+  }).returning();
+  return row;
+}
+
+export async function getCircleInviteCodes(circleId: string) {
+  const db = getDb();
+  return db.select().from(s.circleInviteCodes).where(eq(s.circleInviteCodes.circleId, circleId)).orderBy(desc(s.circleInviteCodes.createdAt));
+}
+
+export async function joinCircleByCode(code: string, userId: string): Promise<{ success: boolean; error?: string; circleName?: string }> {
+  const db = getDb();
+  const [invite] = await db.select().from(s.circleInviteCodes).where(eq(s.circleInviteCodes.code, code)).limit(1);
+  if (!invite) return { success: false, error: "邀请码无效" };
+  if (invite.useCount >= invite.maxUses) return { success: false, error: "邀请码已用完" };
+  if (invite.expiresAt && new Date(invite.expiresAt) < new Date()) return { success: false, error: "邀请码已过期" };
+
+  // Check if already member
+  const existing = await db.execute(sql`SELECT 1 FROM circle_members WHERE circle_id = ${invite.circleId} AND user_id = ${userId} LIMIT 1`);
+  if (existing.length > 0) return { success: false, error: "你已经是该圈子成员" };
+
+  // Add member
+  await db.insert(s.circleMembers).values({ circleId: invite.circleId, userId, role: "member" });
+  // Update use count
+  await db.execute(sql`UPDATE circle_invite_codes SET use_count = use_count + 1 WHERE id = ${invite.id}`);
+
+  const [circle] = await db.select({ name: s.circles.name }).from(s.circles).where(eq(s.circles.id, invite.circleId)).limit(1);
+  return { success: true, circleName: circle?.name };
+}
+
 // ═══ Projects ═══
 
 export async function createProjectNode(project: {

@@ -20,9 +20,13 @@ export default function CirclesPage() {
     queryFn: () => api.get<CircleItem[]>("/circles"),
   });
   const [showForm, setShowForm] = useState(false);
+  const [showJoin, setShowJoin] = useState(false);
   const [name, setName] = useState("");
   const [desc, setDesc] = useState("");
   const [creating, setCreating] = useState(false);
+  const [joinCode, setJoinCode] = useState("");
+  const [joining, setJoining] = useState(false);
+  const [joinMsg, setJoinMsg] = useState("");
 
   const circles = data?.data ?? [];
 
@@ -37,6 +41,23 @@ export default function CirclesPage() {
     refetch();
   };
 
+  const handleJoin = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setJoining(true);
+    setJoinMsg("");
+    const res = await api.post<{ circleName?: string }>("/circles/join", { code: joinCode.trim() });
+    setJoining(false);
+    if (res.success) {
+      setJoinMsg(`已加入「${res.data?.circleName ?? "圈子"}」`);
+      setJoinCode("");
+      setShowJoin(false);
+      refetch();
+    } else {
+      setJoinMsg(res.error ?? "加入失败");
+    }
+    setTimeout(() => setJoinMsg(""), 4000);
+  };
+
   return (
     <div className="page-enter space-y-6">
       {/* Header */}
@@ -47,23 +68,49 @@ export default function CirclesPage() {
             {circles.length} 个圈子
           </p>
         </div>
-        <button
-          onClick={() => setShowForm(!showForm)}
-          className={showForm ? "btn-glass" : "btn-gold"}
-        >
-          {showForm ? (
-            <>
-              <X className="w-4 h-4" />
-              <span>取消</span>
-            </>
-          ) : (
-            <>
-              <Plus className="w-4 h-4" />
-              <span>创建圈子</span>
-            </>
-          )}
-        </button>
+        <div className="flex gap-2">
+          <button
+            onClick={() => { setShowJoin(!showJoin); setShowForm(false); }}
+            className="btn-glass text-sm px-4 py-2"
+          >
+            加入圈子
+          </button>
+          <button
+            onClick={() => { setShowForm(!showForm); setShowJoin(false); }}
+            className={showForm ? "btn-glass text-sm px-4 py-2" : "btn-gold text-sm px-4 py-2"}
+          >
+            {showForm ? "取消" : "+ 创建"}
+          </button>
+        </div>
       </div>
+
+      {/* Join message */}
+      {joinMsg && (
+        <div className="glass-card p-3 text-center text-sm" style={{ marginBottom: 0, borderColor: joinMsg.includes("已加入") ? "rgba(48,209,88,0.3)" : "rgba(255,55,95,0.3)" }}>
+          <span style={{ color: joinMsg.includes("已加入") ? "#30D158" : "#FF375F" }}>{joinMsg}</span>
+        </div>
+      )}
+
+      {/* Join Form */}
+      {showJoin && (
+        <form onSubmit={handleJoin} className="glass-card p-5 space-y-3" style={{ marginBottom: 0 }}>
+          <h3 className="text-sm font-semibold text-white/80">加入圈子</h3>
+          <p className="text-xs text-white/30">输入圈子管理员分享的邀请码</p>
+          <div className="flex gap-2">
+            <input
+              type="text"
+              value={joinCode}
+              onChange={(e) => setJoinCode(e.target.value)}
+              required
+              placeholder="输入圈子邀请码"
+              className="input-dark flex-1"
+            />
+            <button type="submit" disabled={joining} className="btn-gold text-sm px-5">
+              {joining ? "加入中..." : "加入"}
+            </button>
+          </div>
+        </form>
+      )}
 
       {/* Create Form */}
       {showForm && (

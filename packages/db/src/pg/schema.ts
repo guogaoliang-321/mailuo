@@ -51,6 +51,17 @@ export const circles = pgTable("circles", {
   createdAt: timestamp("created_at").defaultNow().notNull(),
 });
 
+export const circleInviteCodes = pgTable("circle_invite_codes", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  circleId: uuid("circle_id").references(() => circles.id).notNull(),
+  code: varchar("code", { length: 20 }).unique().notNull(),
+  createdBy: uuid("created_by").references(() => users.id).notNull(),
+  maxUses: integer("max_uses").default(50).notNull(),
+  useCount: integer("use_count").default(0).notNull(),
+  expiresAt: timestamp("expires_at"),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+
 export const circleMembers = pgTable("circle_members", {
   circleId: uuid("circle_id").references(() => circles.id).notNull(),
   userId: uuid("user_id").references(() => users.id).notNull(),
