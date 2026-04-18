@@ -120,6 +120,17 @@ export const relaySteps = pgTable("relay_steps", {
   consentedAt: timestamp("consented_at"),
 });
 
+// Responses to requests (multiple people can respond)
+export const requestResponses = pgTable("request_responses", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  requestId: uuid("request_id").references(() => requests.id).notNull(),
+  userId: uuid("user_id").references(() => users.id).notNull(),
+  type: varchar("type", { length: 20 }).notNull(), // 'clue' | 'relay'
+  message: text("message").notNull(),
+  accepted: boolean("accepted").default(false),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+
 export const meritEvents = pgTable("merit_events", {
   id: uuid("id").primaryKey().defaultRandom(),
   projectId: uuid("project_id").references(() => projects.id).notNull(),

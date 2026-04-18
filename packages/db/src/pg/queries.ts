@@ -229,6 +229,7 @@ export async function createRequestNode(req: {
   }
 }
 
+// 对接流列表：自己发的 + 圈内未解决的 + 自己参与响应且已完成的
 export async function getRequestsForUser(userId: string) {
   const db = getDb();
   const rows = await db.execute(sql`
@@ -237,17 +238,30 @@ export async function getRequestsForUser(userId: string) {
            r.initiator_id AS "initiatorId",
            p.name AS "projectName",
            r.target_project_id AS "projectId",
-           r.time_ago AS "timeAgo"
+           r.time_ago AS "timeAgo",
+           (SELECT count(*)::int FROM request_responses WHERE request_id = r.id) AS "responseCount"
     FROM requests r
     JOIN users u ON u.id = r.initiator_id
     LEFT JOIN projects p ON p.id = r.target_project_id
-    WHERE r.initiator_id = ${userId}
-       OR r.id IN (SELECT request_id FROM relay_steps WHERE user_id = ${userId})
+    WHERE
+      -- 自己发起的（所有状态都能看）
+      r.initiator_id = ${userId}
+      -- 圈内成员发的且未完成的
+      OR (r.status IN ('pending', 'relaying') AND r.initiator_id IN (
+        SELECT DISTINCT cm2.user_id FROM circle_members cm1
+        JOIN circle_members cm2 ON cm1.circle_id = cm2.circle_id
+        WHERE cm1.user_id = ${userId}
+      ))
+      -- 自己参与响应且已完成的（仅参与者可见）
+      OR (r.status = 'fulfilled' AND r.id IN (
+        SELECT request_id FROM request_responses WHERE user_id = ${userId}
+      ))
     ORDER BY r.created_at DESC
   `);
   return rows;
 }
 
+// 首页关系需求：仅显示圈内未解决的
 export async function getAllVisibleRequests(userId: string) {
   const db = getDb();
   const rows = await db.execute(sql`
@@ -256,18 +270,56 @@ export async function getAllVisibleRequests(userId: string) {
            r.initiator_id AS "initiatorId",
            p.name AS "projectName",
            r.target_project_id AS "projectId",
-           r.time_ago AS "timeAgo"
+           r.time_ago AS "timeAgo",
+           (SELECT count(*)::int FROM request_responses WHERE request_id = r.id) AS "responseCount"
     FROM requests r
     JOIN users u ON u.id = r.initiator_id
     LEFT JOIN projects p ON p.id = r.target_project_id
-    WHERE r.initiator_id IN (
-      SELECT DISTINCT cm2.user_id FROM circle_members cm1
-      JOIN circle_members cm2 ON cm1.circle_id = cm2.circle_id
-      WHERE cm1.user_id = ${userId}
-    ) OR r.initiator_id = ${userId}
+    WHERE r.status IN ('pending', 'relaying')
+      AND (r.initiator_id IN (
+        SELECT DISTINCT cm2.user_id FROM circle_members cm1
+        JOIN circle_members cm2 ON cm1.circle_id = cm2.circle_id
+        WHERE cm1.user_id = ${userId}
+      ) OR r.initiator_id = ${userId})
     ORDER BY r.created_at DESC
   `);
   return rows;
+}
+
+// ═══ Request Responses ═══
+
+export async function addRequestResponse(requestId: string, userId: string, type: string, message: string) {
+  const db = getDb();
+  const [row] = await db.insert(s.requestResponses).values({ requestId, userId, type, message }).returning();
+  // Update request status to relaying
+  await db.execute(sql`UPDATE requests SET status = 'relaying', updated_at = NOW() WHERE id = ${requestId} AND status = 'pending'`);
+  return row;
+}
+
+export async function getRequestResponses(requestId: string) {
+  const db = getDb();
+  return db.execute(sql`
+    SELECT rr.*, u.display_name AS "userName", rr.user_id AS "userId",
+           rr.request_id AS "requestId"
+    FROM request_responses rr
+    JOIN users u ON u.id = rr.user_id
+    WHERE rr.request_id = ${requestId}
+    ORDER BY rr.created_at ASC
+  `);
+}
+
+export async function acceptResponse(responseId: string) {
+  const db = getDb();
+  await db.execute(sql`UPDATE request_responses SET accepted = true WHERE id = ${responseId}`);
+}
+
+export async function completeRequest(requestId: string, userId: string): Promise<boolean> {
+  const db = getDb();
+  // Only initiator can complete
+  const [req] = await db.execute(sql`SELECT initiator_id FROM requests WHERE id = ${requestId}`);
+  if (!req || req.initiator_id !== userId) return false;
+  await db.execute(sql`UPDATE requests SET status = 'fulfilled', updated_at = NOW() WHERE id = ${requestId}`);
+  return true;
 }
 
 export async function getRelaySteps(requestId: string) {

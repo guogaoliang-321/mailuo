@@ -86,26 +86,32 @@ requestRoutes.post("/:id/reject", requireAuth, async (c) => {
   return c.json({ success: true });
 });
 
-// Respond to a request (I have a clue / help relay)
+// Respond to a request (multiple people can respond)
 requestRoutes.post("/:id/respond", requireAuth, async (c) => {
   const body = await c.req.json() as { type: string; message: string };
-  const requestId = c.req.param("id");
-  const userId = c.get("userId");
+  if (!body.message?.trim()) return c.json({ success: false, error: "请输入内容" }, 400);
+  const resp = await neo4jQueries.addRequestResponse(
+    c.req.param("id"), c.get("userId"), body.type, body.message.trim()
+  );
+  return c.json({ success: true, data: resp }, 201);
+});
 
-  const db = getDb();
+// Get all responses for a request
+requestRoutes.get("/:id/responses", requireAuth, async (c) => {
+  const responses = await neo4jQueries.getRequestResponses(c.req.param("id"));
+  return c.json({ success: true, data: responses });
+});
 
-  // Record response as audit log
-  await db.insert(pgSchema.auditLogs).values({
-    userId,
-    action: `request.respond.${body.type}`,
-    entityType: "request",
-    entityId: requestId,
-    detail: { type: body.type, message: body.message },
-  });
+// Accept a specific response
+requestRoutes.post("/:id/accept/:responseId", requireAuth, async (c) => {
+  await neo4jQueries.acceptResponse(c.req.param("responseId"));
+  return c.json({ success: true });
+});
 
-  // Update request status to relaying
-  await db.execute(sql`UPDATE requests SET status = 'relaying', updated_at = NOW() WHERE id = ${requestId} AND status = 'pending'`);
-
+// Complete a request (only initiator)
+requestRoutes.post("/:id/complete", requireAuth, async (c) => {
+  const ok = await neo4jQueries.completeRequest(c.req.param("id"), c.get("userId"));
+  if (!ok) return c.json({ success: false, error: "只有发起人才能完成" }, 403);
   return c.json({ success: true });
 });
 
