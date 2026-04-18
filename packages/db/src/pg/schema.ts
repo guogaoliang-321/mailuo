@@ -152,6 +152,14 @@ export const plazaMessages = pgTable("plaza_messages", {
 });
 
 // Comments on projects/relationships/requests
+export const plazaReplies = pgTable("plaza_replies", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  messageId: uuid("message_id").references(() => plazaMessages.id).notNull(),
+  userId: uuid("user_id").references(() => users.id).notNull(),
+  content: text("content").notNull(),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+
 // ═══ Personal CRM ═══
 
 export const myProjects = pgTable("my_projects", {

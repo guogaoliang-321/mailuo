@@ -568,6 +568,39 @@ export async function getPlazaMessages(userId: string, limit = 30) {
   `);
 }
 
+export async function addPlazaReply(messageId: string, userId: string, content: string) {
+  const db = getDb();
+  const [row] = await db.insert(s.plazaReplies).values({ messageId, userId, content }).returning();
+  return row;
+}
+
+export async function getPlazaReplies(messageId: string) {
+  const db = getDb();
+  return db.execute(sql`
+    SELECT r.*, u.display_name AS "userName", r.user_id AS "userId"
+    FROM plaza_replies r
+    JOIN users u ON u.id = r.user_id
+    WHERE r.message_id = ${messageId}
+    ORDER BY r.created_at DESC
+    LIMIT 3
+  `);
+}
+
+// Get reply counts for multiple messages at once
+export async function getPlazaReplyCounts(messageIds: string[]) {
+  if (messageIds.length === 0) return {};
+  const db = getDb();
+  const rows = await db.execute(sql`
+    SELECT message_id AS "messageId", count(*)::int AS count
+    FROM plaza_replies
+    WHERE message_id = ANY(${messageIds}::uuid[])
+    GROUP BY message_id
+  `);
+  const map: Record<string, number> = {};
+  for (const r of rows) map[r.messageId as string] = r.count as number;
+  return map;
+}
+
 // ═══ Personal CRM: My Projects ═══
 
 export async function getMyProjects(userId: string) {

@@ -484,30 +484,105 @@ function PlazaSection({ userId }: { userId: string }) {
             <p className="text-white/20 text-sm">广场还没有消息，成为第一个发言的人吧</p>
           </div>
         ) : (
-          messages.slice(0, 10).map((m) => {
-            const color = COLORS[(m.userName?.charCodeAt(0) ?? 0) % COLORS.length];
+          messages.slice(0, 10).map((m) => (
+              <PlazaMessageCard key={m.id} message={m} colors={COLORS} />
+          ))
+        )}
+      </div>
+    </div>
+  );
+}
+
+interface PlazaReply {
+  id: string; userName: string; userId: string; content: string; created_at: string;
+}
+
+function PlazaMessageCard({ message: m, colors }: { message: PlazaMsg; colors: string[] }) {
+  const [showReply, setShowReply] = useState(false);
+  const [replyText, setReplyText] = useState("");
+  const [sending, setSending] = useState(false);
+  const queryClient = useQueryClient();
+  const color = colors[(m.userName?.charCodeAt(0) ?? 0) % colors.length];
+
+  const { data: repliesData, refetch: refetchReplies } = useQuery({
+    queryKey: ["plaza-replies", m.id],
+    queryFn: () => api.get<PlazaReply[]>(`/plaza/${m.id}/replies`),
+  });
+
+  const replies = repliesData?.data ?? [];
+
+  const handleReply = async () => {
+    if (!replyText.trim()) return;
+    setSending(true);
+    await api.post(`/plaza/${m.id}/replies`, { content: replyText.trim() });
+    setSending(false);
+    setReplyText("");
+    refetchReplies();
+  };
+
+  return (
+    <div className="glass-card p-4" style={{ marginBottom: 0 }}>
+      {/* Main message */}
+      <div className="flex items-start gap-3">
+        <div className="w-8 h-8 rounded-full text-[11px] font-bold flex items-center justify-center shrink-0"
+          style={{ backgroundColor: `${color}20`, color }}>
+          {m.userName?.[0] ?? "?"}
+        </div>
+        <div className="flex-1 min-w-0">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <span className="text-xs text-white/70 font-medium">{m.userName}</span>
+              <span className="text-[10px] text-white/20">
+                {m.created_at ? new Date(m.created_at).toLocaleDateString("zh-CN", { month: "2-digit", day: "2-digit", hour: "2-digit", minute: "2-digit" }) : ""}
+              </span>
+            </div>
+          </div>
+          <p className="text-sm text-white/60 mt-1 leading-relaxed">{m.content}</p>
+        </div>
+      </div>
+
+      {/* Replies preview */}
+      {replies.length > 0 && (
+        <div className="mt-3 ml-11 space-y-1.5">
+          {replies.map((r) => {
+            const rc = colors[(r.userName?.charCodeAt(0) ?? 0) % colors.length];
             return (
-              <div key={m.id} className="glass-card p-4" style={{ marginBottom: 0 }}>
-                <div className="flex items-start gap-3">
-                  <div className="w-8 h-8 rounded-full text-[11px] font-bold flex items-center justify-center shrink-0"
-                    style={{ backgroundColor: `${color}20`, color }}>
-                    {m.userName?.[0] ?? "?"}
-                  </div>
-                  <div className="flex-1 min-w-0">
-                    <div className="flex items-center justify-between">
-                      <div className="flex items-center gap-2">
-                        <span className="text-xs text-white/70 font-medium">{m.userName}</span>
-                        <span className="text-[10px] text-white/20">
-                          {m.created_at ? new Date(m.created_at).toLocaleDateString("zh-CN", { month: "2-digit", day: "2-digit", hour: "2-digit", minute: "2-digit" }) : ""}
-                        </span>
-                      </div>
-                    </div>
-                    <p className="text-sm text-white/60 mt-1 leading-relaxed">{m.content}</p>
-                  </div>
-                </div>
+              <div key={r.id} className="flex items-start gap-2 text-[11px]">
+                <span className="font-medium shrink-0" style={{ color: rc }}>{r.userName}</span>
+                <span className="text-white/45 flex-1 min-w-0">{r.content}</span>
+                <span className="text-white/15 shrink-0 text-[10px]">
+                  {r.created_at ? new Date(r.created_at).toLocaleDateString("zh-CN", { month: "2-digit", day: "2-digit", hour: "2-digit", minute: "2-digit" }) : ""}
+                </span>
               </div>
             );
-          })
+          })}
+        </div>
+      )}
+
+      {/* Reply button + input */}
+      <div className="mt-2.5 ml-11">
+        {showReply ? (
+          <div className="flex gap-2">
+            <input
+              type="text"
+              value={replyText}
+              onChange={(e) => setReplyText(e.target.value)}
+              placeholder="回复..."
+              className="input-dark flex-1 text-xs py-1.5"
+              onKeyDown={(e) => e.key === "Enter" && handleReply()}
+              autoFocus
+            />
+            <button onClick={handleReply} disabled={sending || !replyText.trim()} className="text-[11px] text-[#D4A853] hover:text-[#D4A853]/80 px-2 shrink-0">
+              {sending ? "..." : "发送"}
+            </button>
+            <button onClick={() => { setShowReply(false); setReplyText(""); }} className="text-[11px] text-white/25 hover:text-white/40 shrink-0">
+              取消
+            </button>
+          </div>
+        ) : (
+          <button onClick={() => setShowReply(true)} className="text-[11px] text-white/25 hover:text-white/40 transition-colors">
+            💬 回复{replies.length > 0 ? ` (${replies.length})` : ""}
+          </button>
         )}
       </div>
     </div>
