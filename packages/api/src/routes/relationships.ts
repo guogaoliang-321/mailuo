@@ -46,14 +46,32 @@ relationshipRoutes.post("/", async (c) => {
     return c.json({ success: false, error: parsed.error.errors[0].message }, 400);
   }
 
-  const id = crypto.randomUUID();
-  await neo4jQueries.createRelationshipNode({
-    id,
-    ownerId: c.get("userId"),
-    ...parsed.data,
+  const userId = c.get("userId");
+  const shareTo = (body as { shareToCircle?: string | "all" }).shareToCircle;
+
+  // 1. Always save to private contacts first
+  const myContact = await neo4jQueries.createMyContact({
+    userId,
+    name: parsed.data.alias,
+    tags: parsed.data.domainTags,
+    closeness: parsed.data.closeness,
+    notes: parsed.data.notes,
+    isShared: !!shareTo,
   });
 
-  return c.json({ success: true, data: { id } }, 201);
+  // 2. If sharing, also create in shared pool
+  let sharedId: string | undefined;
+  if (shareTo) {
+    sharedId = crypto.randomUUID();
+    await neo4jQueries.createRelationshipNode({
+      id: sharedId,
+      ownerId: userId,
+      ...parsed.data,
+      circleId: shareTo === "all" ? null : shareTo,
+    });
+  }
+
+  return c.json({ success: true, data: { id: sharedId ?? myContact.id, privateId: myContact.id } }, 201);
 });
 
 // Comments

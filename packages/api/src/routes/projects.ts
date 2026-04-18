@@ -30,14 +30,33 @@ projectRoutes.post("/", async (c) => {
     return c.json({ success: false, error: parsed.error.errors[0].message }, 400);
   }
 
-  const id = crypto.randomUUID();
-  await neo4jQueries.createProjectNode({
-    id,
-    ...parsed.data,
-    contributorId: c.get("userId"),
+  const userId = c.get("userId");
+  const shareTo = (body as { shareToCircle?: string | "all" }).shareToCircle;
+
+  // 1. Always save to private library first
+  const myProject = await neo4jQueries.createMyProject({
+    userId,
+    name: parsed.data.name,
+    stage: parsed.data.stage,
+    region: parsed.data.region,
+    budget: parsed.data.scale,
+    notes: parsed.data.notes,
+    isShared: !!shareTo,
   });
 
-  return c.json({ success: true, data: { id } }, 201);
+  // 2. If sharing, also create in shared pool
+  let sharedId: string | undefined;
+  if (shareTo) {
+    sharedId = crypto.randomUUID();
+    await neo4jQueries.createProjectNode({
+      id: sharedId,
+      ...parsed.data,
+      contributorId: userId,
+      circleId: shareTo === "all" ? null : shareTo,
+    });
+  }
+
+  return c.json({ success: true, data: { id: sharedId ?? myProject.id, privateId: myProject.id } }, 201);
 });
 
 projectRoutes.patch("/:id", async (c) => {

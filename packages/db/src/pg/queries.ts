@@ -614,7 +614,7 @@ export async function getMyProjects(userId: string) {
 export async function createMyProject(data: {
   userId: string; name: string; stage?: string; client?: string;
   budget?: string; region?: string; tags?: string[]; notes?: string;
-  nextAction?: string; nextActionDate?: string;
+  nextAction?: string; nextActionDate?: string; isShared?: boolean;
 }) {
   const db = getDb();
   const [row] = await db.insert(s.myProjects).values({
@@ -673,7 +673,7 @@ export async function getMyContacts(userId: string) {
 export async function createMyContact(data: {
   userId: string; name: string; company?: string; title?: string;
   phone?: string; tags?: string[]; closeness?: number; notes?: string;
-  nextAction?: string; nextActionDate?: string; reminderDays?: number;
+  nextAction?: string; nextActionDate?: string; reminderDays?: number; isShared?: boolean;
 }) {
   const db = getDb();
   const [row] = await db.insert(s.myContacts).values({

@@ -30,6 +30,38 @@ myRoutes.delete("/projects/:id", async (c) => {
   return c.json({ success: true });
 });
 
+// Share private project to circle pool
+myRoutes.post("/projects/:id/share", async (c) => {
+  const body = await c.req.json() as { circleId?: string };
+  const userId = c.get("userId");
+  const { getDb } = await import("@meridian/db");
+  const { sql } = await import("drizzle-orm");
+  const db = getDb();
+
+  // Get private project
+  const [mp] = await db.execute(sql`SELECT * FROM my_projects WHERE id = ${c.req.param("id")} AND user_id = ${userId}`);
+  if (!mp) return c.json({ success: false, error: "项目不存在" }, 404);
+
+  // Create in shared pool
+  const sharedId = crypto.randomUUID();
+  await neo4jQueries.createProjectNode({
+    id: sharedId,
+    name: mp.name as string,
+    region: (mp.region as string) ?? "",
+    scale: (mp.budget as string) ?? "",
+    stage: (mp.stage as string) ?? "prospecting",
+    decisionMakerClue: "",
+    notes: (mp.notes as string) ?? "",
+    contributorId: userId,
+    circleId: body.circleId ?? null,
+  });
+
+  // Mark as shared
+  await db.execute(sql`UPDATE my_projects SET is_shared = true, updated_at = NOW() WHERE id = ${c.req.param("id")}`);
+
+  return c.json({ success: true, data: { sharedId } });
+});
+
 // ── My Contacts ──
 
 myRoutes.get("/contacts", async (c) => {
@@ -57,6 +89,36 @@ myRoutes.patch("/contacts/:id", async (c) => {
 myRoutes.delete("/contacts/:id", async (c) => {
   await neo4jQueries.deleteMyContact(c.req.param("id"), c.get("userId"));
   return c.json({ success: true });
+});
+
+// Share private contact to circle pool (as relationship, with alias)
+myRoutes.post("/contacts/:id/share", async (c) => {
+  const body = await c.req.json() as { circleId?: string; alias?: string; visibility?: string };
+  const userId = c.get("userId");
+  const { getDb } = await import("@meridian/db");
+  const { sql } = await import("drizzle-orm");
+  const db = getDb();
+
+  const [mc] = await db.execute(sql`SELECT * FROM my_contacts WHERE id = ${c.req.param("id")} AND user_id = ${userId}`);
+  if (!mc) return c.json({ success: false, error: "联系人不存在" }, 404);
+
+  const sharedId = crypto.randomUUID();
+  await neo4jQueries.createRelationshipNode({
+    id: sharedId,
+    ownerId: userId,
+    alias: body.alias ?? (mc.name as string),
+    domainTags: (mc.tags as string[]) ?? [],
+    levelTags: [],
+    closeness: (mc.closeness as number) ?? 3,
+    visibility: body.visibility ?? "circle",
+    designatedViewerIds: [],
+    circleId: body.circleId ?? null,
+    notes: "",
+  });
+
+  await db.execute(sql`UPDATE my_contacts SET is_shared = true, shared_alias = ${body.alias ?? mc.name}, updated_at = NOW() WHERE id = ${c.req.param("id")}`);
+
+  return c.json({ success: true, data: { sharedId } });
 });
 
 // ── Contact Logs ──

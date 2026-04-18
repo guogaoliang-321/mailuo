@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
+import { useQuery } from "@tanstack/react-query";
 import { api } from "@/lib/api";
 import { CLOSENESS_LABELS, VISIBILITY_LABELS } from "@meridian/shared";
 import { ArrowLeft, Send } from "lucide-react";
@@ -17,8 +18,15 @@ export default function NewRelationshipPage() {
     visibility: "circle",
     notes: "",
   });
+  const [shareToCircle, setShareToCircle] = useState("");
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
+
+  const { data: circlesData } = useQuery({
+    queryKey: ["circles"],
+    queryFn: () => api.get<Array<{ id: string; name: string }>>("/circles"),
+  });
+  const circles = circlesData?.data ?? [];
 
   const update = (field: string, value: string | number) =>
     setForm((prev) => ({ ...prev, [field]: value }));
@@ -35,11 +43,12 @@ export default function NewRelationshipPage() {
       closeness: form.closeness,
       visibility: form.visibility,
       notes: form.notes,
+      shareToCircle: shareToCircle || undefined,
     });
 
     setLoading(false);
     if (res.success) {
-      router.push("/relationships");
+      router.push(shareToCircle ? "/relationships" : "/my");
     } else {
       setError(res.error ?? "创建失败");
     }
@@ -209,6 +218,27 @@ export default function NewRelationshipPage() {
             className="input-dark w-full resize-none"
             placeholder="补充说明（可选）"
           />
+        </div>
+
+        {/* Share to circle option */}
+        <div>
+          <label className="block text-xs font-medium text-white/50 mb-2 tracking-wider">
+            同步到圈子（可选）
+          </label>
+          <select
+            value={shareToCircle}
+            onChange={(e) => setShareToCircle(e.target.value)}
+            className="input-dark w-full appearance-none"
+          >
+            <option value="">仅保存到我的私有库</option>
+            <option value="all">同步到所有圈子</option>
+            {circles.map((c) => (
+              <option key={c.id} value={c.id}>同步到「{c.name}」</option>
+            ))}
+          </select>
+          <p className="text-[10px] text-white/20 mt-1">
+            {shareToCircle ? "关系将同时保存到私有库和圈子共享池" : "默认仅存私有库，随时可在「我的」中同步到圈子"}
+          </p>
         </div>
 
         {error && (
