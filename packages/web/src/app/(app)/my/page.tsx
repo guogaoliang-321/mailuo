@@ -212,7 +212,7 @@ function ContactsTab() {
                   <span className="text-sm text-white/90 font-medium group-hover:text-white transition-colors">{c.name}</span>
                   {c.is_shared
                     ? <span className="text-[9px] text-[#30D158] bg-[#30D158]/10 px-1.5 py-0.5 rounded">已分享</span>
-                    : <span className="text-[9px] text-white/25 bg-white/5 px-1.5 py-0.5 rounded">私有</span>
+                    : <span className="text-[9px] text-white/25 bg-white/5 px-1.5 py-0.5 rounded">私密关系 (仅本人可见)</span>
                   }
                   {c.actionSoon && <span className="text-[9px] text-[#FF9F0A] bg-[#FF9F0A]/10 px-1.5 py-0.5 rounded">待行动</span>}
                   {c.needsReminder && <span className="text-[9px] text-[#FF375F] bg-[#FF375F]/10 px-1.5 py-0.5 rounded">该联络</span>}
@@ -332,7 +332,7 @@ function ProjectsTab() {
                     <h3 className="text-sm text-white/90 font-medium">{p.name}</h3>
                     {p.is_shared
                       ? <span className="text-[9px] text-[#30D158] bg-[#30D158]/10 px-1.5 py-0.5 rounded">已分享</span>
-                      : <span className="text-[9px] text-white/25 bg-white/5 px-1.5 py-0.5 rounded">私有</span>
+                      : <span className="text-[9px] text-white/25 bg-white/5 px-1.5 py-0.5 rounded">私密项目 (仅本人可见)</span>
                     }
                   </div>
                   <div className="text-[11px] text-white/35 mt-0.5">
@@ -355,7 +355,7 @@ function ProjectsTab() {
                 </span>
               </div>
               {/* Share management */}
-              <div className="mt-2" onClick={(e) => e.preventDefault()}>
+              <div className="mt-2" onClick={(e) => { e.preventDefault(); e.stopPropagation(); }}>
                 <ShareManager type="projects" id={p.id} isShared={!!p.is_shared} onDone={() => queryClient.invalidateQueries({ queryKey: ["my-projects"] })} />
               </div>
             </Link>
@@ -378,7 +378,9 @@ function ShareManager({ type, id, isShared, onDone }: { type: "projects" | "cont
   });
   const circles = circlesData?.data ?? [];
 
-  const handleShare = async (circleId?: string) => {
+  const handleShare = async (e: React.MouseEvent, circleId?: string) => {
+    e.preventDefault();
+    e.stopPropagation();
     setSharing(true);
     await api.post(`/my/${type}/${id}/share`, { circleId });
     setSharing(false);
@@ -397,11 +399,11 @@ function ShareManager({ type, id, isShared, onDone }: { type: "projects" | "cont
     <div className="p-2.5 rounded-xl bg-white/[0.03] border border-white/[0.06]">
       <div className="text-[10px] text-white/30 mb-2">{isShared ? "重新分享到：" : "选择分享的圈子："}</div>
       <div className="flex flex-wrap gap-1.5">
-        <button onClick={() => handleShare()} disabled={sharing} className="text-[10px] px-2.5 py-1 rounded-lg bg-[#5AC8FA]/10 text-[#5AC8FA] hover:bg-[#5AC8FA]/20 transition-colors">
+        <button onClick={(e) => handleShare(e)} disabled={sharing} className="text-[10px] px-2.5 py-1 rounded-lg bg-[#5AC8FA]/10 text-[#5AC8FA] hover:bg-[#5AC8FA]/20 transition-colors">
           {sharing ? "..." : "📢 所有圈子"}
         </button>
         {circles.map((c) => (
-          <button key={c.id} onClick={() => handleShare(c.id)} disabled={sharing} className="text-[10px] px-2.5 py-1 rounded-lg bg-white/5 text-white/50 hover:bg-white/10 transition-colors">
+          <button key={c.id} onClick={(e) => handleShare(e, c.id)} disabled={sharing} className="text-[10px] px-2.5 py-1 rounded-lg bg-white/5 text-white/50 hover:bg-white/10 transition-colors">
             {c.name}
           </button>
         ))}
