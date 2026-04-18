@@ -239,12 +239,10 @@ function ContactsTab() {
                 ))}
               </div>
             </Link>
-            {/* Share button for unshared contacts */}
-            {!c.is_shared && (
-              <div className="mt-2 ml-12">
-                <ShareToCircleBtn type="contacts" id={c.id} onDone={() => queryClient.invalidateQueries({ queryKey: ["my-contacts"] })} />
-              </div>
-            )}
+            {/* Share management */}
+            <div className="mt-2 ml-12">
+              <ShareManager type="contacts" id={c.id} isShared={!!c.is_shared} onDone={() => queryClient.invalidateQueries({ queryKey: ["my-contacts"] })} />
+            </div>
           </div>
         ))
       )}
@@ -356,12 +354,10 @@ function ProjectsTab() {
                   {STAGE_LABELS[p.stage] ?? p.stage}
                 </span>
               </div>
-              {/* Share button */}
-              {!p.is_shared && (
-                <div className="mt-2" onClick={(e) => e.preventDefault()}>
-                  <ShareToCircleBtn type="projects" id={p.id} onDone={() => queryClient.invalidateQueries({ queryKey: ["my-projects"] })} />
-                </div>
-              )}
+              {/* Share management */}
+              <div className="mt-2" onClick={(e) => e.preventDefault()}>
+                <ShareManager type="projects" id={p.id} isShared={!!p.is_shared} onDone={() => queryClient.invalidateQueries({ queryKey: ["my-projects"] })} />
+              </div>
             </Link>
           );
         })
@@ -370,8 +366,8 @@ function ProjectsTab() {
   );
 }
 
-// ── Share to Circle Button ──
-function ShareToCircleBtn({ type, id, onDone }: { type: "projects" | "contacts"; id: string; onDone: () => void }) {
+// ── Share Manager (multi-select, always editable) ──
+function ShareManager({ type, id, isShared, onDone }: { type: "projects" | "contacts"; id: string; isShared: boolean; onDone: () => void }) {
   const [open, setOpen] = useState(false);
   const [sharing, setSharing] = useState(false);
 
@@ -386,29 +382,31 @@ function ShareToCircleBtn({ type, id, onDone }: { type: "projects" | "contacts";
     setSharing(true);
     await api.post(`/my/${type}/${id}/share`, { circleId });
     setSharing(false);
-    setOpen(false);
     onDone();
   };
 
   if (!open) {
     return (
-      <button onClick={() => setOpen(true)} className="text-[11px] text-[#5AC8FA]/70 hover:text-[#5AC8FA] transition-colors">
-        📤 分享到圈子
+      <button onClick={() => setOpen(true)} className="text-[11px] transition-colors" style={{ color: isShared ? "rgba(48,209,88,0.7)" : "rgba(90,200,250,0.7)" }}>
+        {isShared ? "🔄 管理分享" : "📤 分享到圈子"}
       </button>
     );
   }
 
   return (
-    <div className="flex flex-wrap gap-1.5 items-center">
-      <button onClick={() => handleShare()} disabled={sharing} className="text-[10px] px-2 py-1 rounded-lg bg-[#5AC8FA]/10 text-[#5AC8FA] hover:bg-[#5AC8FA]/20 transition-colors">
-        {sharing ? "..." : "所有圈子"}
-      </button>
-      {circles.map((c) => (
-        <button key={c.id} onClick={() => handleShare(c.id)} disabled={sharing} className="text-[10px] px-2 py-1 rounded-lg bg-white/5 text-white/50 hover:bg-white/10 transition-colors">
-          {c.name}
+    <div className="p-2.5 rounded-xl bg-white/[0.03] border border-white/[0.06]">
+      <div className="text-[10px] text-white/30 mb-2">{isShared ? "重新分享到：" : "选择分享的圈子："}</div>
+      <div className="flex flex-wrap gap-1.5">
+        <button onClick={() => handleShare()} disabled={sharing} className="text-[10px] px-2.5 py-1 rounded-lg bg-[#5AC8FA]/10 text-[#5AC8FA] hover:bg-[#5AC8FA]/20 transition-colors">
+          {sharing ? "..." : "📢 所有圈子"}
         </button>
-      ))}
-      <button onClick={() => setOpen(false)} className="text-[10px] text-white/25 ml-1">取消</button>
+        {circles.map((c) => (
+          <button key={c.id} onClick={() => handleShare(c.id)} disabled={sharing} className="text-[10px] px-2.5 py-1 rounded-lg bg-white/5 text-white/50 hover:bg-white/10 transition-colors">
+            {c.name}
+          </button>
+        ))}
+      </div>
+      <button onClick={() => setOpen(false)} className="text-[10px] text-white/25 mt-2 block">收起</button>
     </div>
   );
 }
