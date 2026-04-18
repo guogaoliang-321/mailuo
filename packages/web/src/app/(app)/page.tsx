@@ -1,7 +1,7 @@
 "use client";
 
 import { useAuth } from "@/lib/auth";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { api } from "@/lib/api";
 import Link from "next/link";
 import { PROJECT_STAGE_LABELS } from "@meridian/shared";
@@ -226,54 +226,24 @@ export default function DashboardPage() {
         </div>
       </div>
 
-      {/* Navigation Buttons */}
-      <div className="grid grid-cols-3 gap-3">
-        <Link
-          href="/projects"
-          className="glass-card p-4 flex flex-col items-center gap-2 group hover:border-[#5AC8FA]/30 transition-colors"
-        >
-          <div className="w-10 h-10 rounded-xl bg-[#5AC8FA]/10 flex items-center justify-center group-hover:bg-[#5AC8FA]/20 transition-colors">
-            <FolderKanban className="w-5 h-5 text-[#5AC8FA]" />
-          </div>
-          <span className="text-xs text-white/60 group-hover:text-white/90 transition-colors tracking-wide">项目池</span>
+      {/* Quick Actions — compact row */}
+      <div className="flex gap-2">
+        <Link href="/projects/new" className="btn-glass flex-1 flex items-center justify-center gap-1.5 py-2 px-2 text-[11px] rounded-xl">
+          <span className="text-[#5AC8FA]">+</span>
+          <span className="text-white/60">贡献项目信息</span>
         </Link>
-
-        <Link
-          href="/relationships"
-          className="glass-card p-4 flex flex-col items-center gap-2 group hover:border-[#30D158]/30 transition-colors"
-        >
-          <div className="w-10 h-10 rounded-xl bg-[#30D158]/10 flex items-center justify-center group-hover:bg-[#30D158]/20 transition-colors">
-            <Users className="w-5 h-5 text-[#30D158]" />
-          </div>
-          <span className="text-xs text-white/60 group-hover:text-white/90 transition-colors tracking-wide">关系池</span>
+        <Link href="/relationships/new" className="btn-glass flex-1 flex items-center justify-center gap-1.5 py-2 px-2 text-[11px] rounded-xl">
+          <span className="text-[#30D158]">+</span>
+          <span className="text-white/60">登记关系资源</span>
         </Link>
-
-        <Link
-          href="/requests"
-          className="glass-card p-4 flex flex-col items-center gap-2 group hover:border-[#D4A853]/30 transition-colors"
-        >
-          <div className="w-10 h-10 rounded-xl bg-[#D4A853]/10 flex items-center justify-center group-hover:bg-[#D4A853]/20 transition-colors">
-            <GitPullRequest className="w-5 h-5 text-[#D4A853]" />
-          </div>
-          <span className="text-xs text-white/60 group-hover:text-white/90 transition-colors tracking-wide">对接流</span>
+        <Link href="/requests/new" className="btn-glass flex-1 flex items-center justify-center gap-1.5 py-2 px-2 text-[11px] rounded-xl">
+          <span className="text-[#D4A853]">+</span>
+          <span className="text-white/60">发起对接请求</span>
         </Link>
       </div>
 
-      {/* Quick Actions */}
-      <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-        <Link href="/projects/new" className="btn-glass flex items-center gap-2 py-2.5 px-4 justify-center">
-          <Plus className="w-4 h-4 text-[#5AC8FA]" />
-          <span className="text-sm text-white/70">贡献项目信息</span>
-        </Link>
-        <Link href="/relationships/new" className="btn-glass flex items-center gap-2 py-2.5 px-4 justify-center">
-          <Plus className="w-4 h-4 text-[#30D158]" />
-          <span className="text-sm text-white/70">登记关系资源</span>
-        </Link>
-        <Link href="/requests/new" className="btn-glass flex items-center gap-2 py-2.5 px-4 justify-center">
-          <Plus className="w-4 h-4 text-[#D4A853]" />
-          <span className="text-sm text-white/70">发起对接请求</span>
-        </Link>
-      </div>
+      {/* Plaza — Circle Square */}
+      <PlazaSection userId={user?.id ?? ""} />
 
       {/* Latest Projects — horizontal scroll cards */}
       <div>
@@ -438,6 +408,108 @@ function ClosenessIndicator({ value }: { value: number }) {
           }`}
         />
       ))}
+    </div>
+  );
+}
+
+interface PlazaMsg {
+  id: string;
+  userId: string;
+  userName: string;
+  content: string;
+  type: string;
+  created_at: string;
+}
+
+function PlazaSection({ userId }: { userId: string }) {
+  const [msg, setMsg] = useState("");
+  const [sending, setSending] = useState(false);
+  const queryClient = useQueryClient();
+
+  const { data } = useQuery({
+    queryKey: ["plaza"],
+    queryFn: () => api.get<PlazaMsg[]>("/plaza"),
+    refetchInterval: 15000,
+  });
+
+  const messages = data?.data ?? [];
+  const COLORS = ["#D4A853", "#5AC8FA", "#30D158", "#BF5AF2", "#FF9F0A", "#FF375F"];
+
+  const handleSend = async () => {
+    if (!msg.trim()) return;
+    setSending(true);
+    await api.post("/plaza", { content: msg.trim() });
+    setSending(false);
+    setMsg("");
+    queryClient.invalidateQueries({ queryKey: ["plaza"] });
+  };
+
+  const getTypeIcon = (type: string) => {
+    switch (type) {
+      case "project": return "📋";
+      case "relationship": return "🤝";
+      case "request": return "⇌";
+      default: return "💬";
+    }
+  };
+
+  return (
+    <div>
+      <div className="flex items-center justify-between mb-3">
+        <h2 className="text-sm font-semibold text-white/80">🏛 圈子广场</h2>
+        <span className="text-[10px] text-white/25">所有圈子成员可见</span>
+      </div>
+
+      {/* Post input */}
+      <div className="glass-card p-4 mb-3" style={{ marginBottom: 12 }}>
+        <div className="flex gap-2">
+          <input
+            type="text"
+            value={msg}
+            onChange={(e) => setMsg(e.target.value)}
+            placeholder="分享信息、项目线索、资源动态..."
+            className="input-dark flex-1 text-sm py-2.5"
+            onKeyDown={(e) => e.key === "Enter" && handleSend()}
+          />
+          <button onClick={handleSend} disabled={sending || !msg.trim()} className="btn-gold text-xs px-4 py-2.5 shrink-0">
+            {sending ? "..." : "发布"}
+          </button>
+        </div>
+      </div>
+
+      {/* Messages */}
+      <div className="space-y-2">
+        {messages.length === 0 ? (
+          <div className="glass-card text-center py-8" style={{ marginBottom: 0 }}>
+            <p className="text-white/20 text-sm">广场还没有消息，成为第一个发言的人吧</p>
+          </div>
+        ) : (
+          messages.slice(0, 10).map((m) => {
+            const color = COLORS[(m.userName?.charCodeAt(0) ?? 0) % COLORS.length];
+            return (
+              <div key={m.id} className="glass-card p-4" style={{ marginBottom: 0 }}>
+                <div className="flex items-start gap-3">
+                  <div className="w-8 h-8 rounded-full text-[11px] font-bold flex items-center justify-center shrink-0"
+                    style={{ backgroundColor: `${color}20`, color }}>
+                    {m.userName?.[0] ?? "?"}
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-2">
+                        <span className="text-xs text-white/70 font-medium">{m.userName}</span>
+                        <span className="text-[10px] text-white/20">
+                          {m.created_at ? new Date(m.created_at).toLocaleDateString("zh-CN", { month: "2-digit", day: "2-digit", hour: "2-digit", minute: "2-digit" }) : ""}
+                        </span>
+                      </div>
+                    </div>
+                    <p className="text-sm text-white/60 mt-1 leading-relaxed">{m.content}</p>
+                  </div>
+                </div>
+              </div>
+            );
+          })
+        )}
+      </div>
     </div>
   );
 }

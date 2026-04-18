@@ -142,6 +142,15 @@ export const meritEvents = pgTable("merit_events", {
   createdAt: timestamp("created_at").defaultNow().notNull(),
 });
 
+// Plaza messages (visible to all circle members across all circles)
+export const plazaMessages = pgTable("plaza_messages", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  userId: uuid("user_id").references(() => users.id).notNull(),
+  content: text("content").notNull(),
+  type: varchar("type", { length: 20 }).default("general"), // general, project, relationship, request
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+
 // Comments on projects/relationships/requests
 export const comments = pgTable("comments", {
   id: uuid("id").primaryKey().defaultRandom(),

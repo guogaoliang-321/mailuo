@@ -542,3 +542,28 @@ export async function getCircleMessages(circleId: string, limit = 50) {
     LIMIT ${limit}
   `);
 }
+
+// ═══ Plaza Messages ═══
+
+export async function addPlazaMessage(userId: string, content: string, type = "general") {
+  const db = getDb();
+  const [row] = await db.insert(s.plazaMessages).values({ userId, content, type }).returning();
+  return row;
+}
+
+export async function getPlazaMessages(userId: string, limit = 30) {
+  const db = getDb();
+  // All messages from users who share any circle with current user
+  return db.execute(sql`
+    SELECT pm.*, u.display_name AS "userName", pm.user_id AS "userId"
+    FROM plaza_messages pm
+    JOIN users u ON u.id = pm.user_id
+    WHERE pm.user_id IN (
+      SELECT DISTINCT cm2.user_id FROM circle_members cm1
+      JOIN circle_members cm2 ON cm1.circle_id = cm2.circle_id
+      WHERE cm1.user_id = ${userId}
+    ) OR pm.user_id = ${userId}
+    ORDER BY pm.created_at DESC
+    LIMIT ${limit}
+  `);
+}
