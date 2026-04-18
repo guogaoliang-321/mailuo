@@ -4,6 +4,7 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { api } from "@/lib/api";
 import Link from "next/link";
 import { useState } from "react";
+import { TagInput } from "@/components/tag-input";
 
 interface MyProject {
   id: string; name: string; stage: string; client: string;
@@ -113,23 +114,34 @@ function ContactsTab() {
   const { data, isLoading } = useQuery({ queryKey: ["my-contacts"], queryFn: () => api.get<MyContact[]>("/my/contacts") });
   const [showForm, setShowForm] = useState(false);
   const [filter, setFilter] = useState("");
-  const contacts = (data?.data ?? []).filter((c) =>
-    !filter || c.name.includes(filter) || (c.tags ?? []).some((t: string) => t.includes(filter)) || (c.company ?? "").includes(filter)
-  );
+  const [tagFilter, setTagFilter] = useState("");
+  const allContacts = data?.data ?? [];
 
-  const [form, setForm] = useState({ name: "", company: "", title: "", phone: "", tags: "", closeness: 3, notes: "", nextAction: "", nextActionDate: "", reminderDays: "" });
+  // Extract all unique tags from contacts for filter bar
+  const allContactTags = [...new Set(allContacts.flatMap((c) => (c.tags ?? []) as string[]))].sort();
+
+  const contacts = allContacts.filter((c) => {
+    const matchSearch = !filter || c.name.includes(filter) || (c.tags ?? []).some((t: string) => t.includes(filter)) || (c.company ?? "").includes(filter);
+    const matchTag = !tagFilter || (c.tags ?? []).includes(tagFilter);
+    return matchSearch && matchTag;
+  });
+
+  const [form, setForm] = useState({ name: "", company: "", title: "", phone: "", closeness: 3, notes: "", nextAction: "", nextActionDate: "", reminderDays: "" });
+  const [newTags, setNewTags] = useState<string[]>([]);
 
   const handleCreate = async (e: React.FormEvent) => {
     e.preventDefault();
     await api.post("/my/contacts", {
       ...form,
-      tags: form.tags.split(/[,，\s]+/).filter(Boolean),
+      tags: newTags,
       reminderDays: form.reminderDays ? Number(form.reminderDays) : undefined,
       nextActionDate: form.nextActionDate || undefined,
     });
     setShowForm(false);
-    setForm({ name: "", company: "", title: "", phone: "", tags: "", closeness: 3, notes: "", nextAction: "", nextActionDate: "", reminderDays: "" });
+    setForm({ name: "", company: "", title: "", phone: "", closeness: 3, notes: "", nextAction: "", nextActionDate: "", reminderDays: "" });
+    setNewTags([]);
     queryClient.invalidateQueries({ queryKey: ["my-contacts"] });
+    queryClient.invalidateQueries({ queryKey: ["my-tags"] });
   };
 
   return (
@@ -138,6 +150,22 @@ function ContactsTab() {
         <input type="text" value={filter} onChange={(e) => setFilter(e.target.value)} placeholder="搜索姓名、标签、单位..." className="input-dark flex-1 text-sm py-2" />
         <button onClick={() => setShowForm(!showForm)} className="btn-gold text-xs px-4">{showForm ? "取消" : "+ 添加"}</button>
       </div>
+
+      {/* Tag filter bar */}
+      {allContactTags.length > 0 && (
+        <div className="flex gap-1.5 overflow-x-auto pb-1" style={{ scrollbarWidth: "none" }}>
+          <button onClick={() => setTagFilter("")}
+            className={`text-[10px] px-2.5 py-1 rounded-lg shrink-0 transition-all ${!tagFilter ? "bg-[#D4A853]/20 text-[#D4A853]" : "bg-white/5 text-white/30 hover:text-white/50"}`}>
+            全部
+          </button>
+          {allContactTags.map((tag) => (
+            <button key={tag} onClick={() => setTagFilter(tagFilter === tag ? "" : tag)}
+              className={`text-[10px] px-2.5 py-1 rounded-lg shrink-0 transition-all ${tagFilter === tag ? "bg-[#5AC8FA]/20 text-[#5AC8FA]" : "bg-white/5 text-white/30 hover:text-white/50"}`}>
+              {tag}
+            </button>
+          ))}
+        </div>
+      )}
 
       {showForm && (
         <form onSubmit={handleCreate} className="glass-card p-5 space-y-3" style={{ marginBottom: 0 }}>
@@ -149,7 +177,10 @@ function ContactsTab() {
             <input type="text" value={form.title} onChange={(e) => setForm({...form, title: e.target.value})} placeholder="职务" className="input-dark text-sm py-2" />
             <input type="text" value={form.phone} onChange={(e) => setForm({...form, phone: e.target.value})} placeholder="电话" className="input-dark text-sm py-2" />
           </div>
-          <input type="text" value={form.tags} onChange={(e) => setForm({...form, tags: e.target.value})} placeholder="标签（逗号分隔）：政府,医院,甲方..." className="input-dark text-sm py-2" />
+          <div>
+            <label className="block text-[10px] text-white/30 mb-1">标签</label>
+            <TagInput value={newTags} onChange={setNewTags} placeholder="输入标签回车添加（如：政府、甲方、医院）" />
+          </div>
           <div className="grid grid-cols-2 gap-3">
             <input type="text" value={form.nextAction} onChange={(e) => setForm({...form, nextAction: e.target.value})} placeholder="下一步行动（如：登门拜访）" className="input-dark text-sm py-2" />
             <input type="date" value={form.nextActionDate} onChange={(e) => setForm({...form, nextActionDate: e.target.value})} className="input-dark text-sm py-2" />
@@ -226,7 +257,9 @@ function ProjectsTab() {
   const queryClient = useQueryClient();
   const { data, isLoading } = useQuery({ queryKey: ["my-projects"], queryFn: () => api.get<MyProject[]>("/my/projects") });
   const [showForm, setShowForm] = useState(false);
-  const projects = data?.data ?? [];
+  const [stageFilter, setStageFilter] = useState("");
+  const allProjects = data?.data ?? [];
+  const projects = stageFilter ? allProjects.filter((p) => p.stage === stageFilter) : allProjects;
 
   const [form, setForm] = useState({ name: "", stage: "prospecting", client: "", budget: "", region: "", notes: "", nextAction: "", nextActionDate: "", deadline: "", deadlineNote: "" });
 
@@ -240,8 +273,22 @@ function ProjectsTab() {
 
   return (
     <div className="space-y-3">
-      <div className="flex justify-end">
-        <button onClick={() => setShowForm(!showForm)} className="btn-gold text-xs px-4">{showForm ? "取消" : "+ 添加项目"}</button>
+      <div className="flex items-center justify-between gap-2">
+        {/* Stage filter */}
+        <div className="flex gap-1 overflow-x-auto" style={{ scrollbarWidth: "none" }}>
+          <button onClick={() => setStageFilter("")}
+            className={`text-[10px] px-2 py-1 rounded-lg shrink-0 transition-all ${!stageFilter ? "bg-[#D4A853]/20 text-[#D4A853]" : "bg-white/5 text-white/30"}`}>
+            全部
+          </button>
+          {Object.entries(STAGE_LABELS).map(([k, v]) => (
+            <button key={k} onClick={() => setStageFilter(stageFilter === k ? "" : k)}
+              className={`text-[10px] px-2 py-1 rounded-lg shrink-0 transition-all ${stageFilter === k ? `bg-white/10 text-white` : "bg-white/5 text-white/30"}`}
+              style={stageFilter === k ? { color: STAGE_COLORS[k] } : {}}>
+              {v}
+            </button>
+          ))}
+        </div>
+        <button onClick={() => setShowForm(!showForm)} className="btn-gold text-xs px-4 shrink-0">{showForm ? "取消" : "+ 添加"}</button>
       </div>
 
       {showForm && (

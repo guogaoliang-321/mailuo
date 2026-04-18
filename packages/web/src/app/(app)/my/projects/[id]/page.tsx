@@ -122,6 +122,28 @@ export default function MyProjectDetailPage() {
               <input type="date" value={form.nextActionDate} onChange={(e) => setForm({...form, nextActionDate: e.target.value})} className="input-dark text-sm py-2" />
             </div>
             <textarea value={form.notes} onChange={(e) => setForm({...form, notes: e.target.value})} placeholder="备注" rows={3} className="input-dark text-sm py-2 resize-none w-full" />
+            {/* Share status in edit mode */}
+            {!isShared && (
+              <div className="p-3 rounded-xl bg-white/[0.03] border border-white/[0.06]">
+                <div className="flex items-center justify-between">
+                  <span className="text-[10px] text-white/30">当前状态：<span className="text-white/50">私有</span></span>
+                  {!shareOpen ? (
+                    <button onClick={() => setShareOpen(true)} className="text-[10px] text-[#5AC8FA]/70 hover:text-[#5AC8FA]">📤 分享到圈子</button>
+                  ) : (
+                    <div className="flex flex-wrap gap-1.5 items-center">
+                      <button onClick={() => handleShare()} disabled={sharing} className="text-[10px] px-2 py-1 rounded-lg bg-[#5AC8FA]/10 text-[#5AC8FA]">{sharing ? "..." : "所有圈子"}</button>
+                      {(circlesData?.data ?? []).map((c) => (
+                        <button key={c.id} onClick={() => handleShare(c.id)} disabled={sharing} className="text-[10px] px-2 py-1 rounded-lg bg-white/5 text-white/50">{c.name}</button>
+                      ))}
+                      <button onClick={() => setShareOpen(false)} className="text-[10px] text-white/25">取消</button>
+                    </div>
+                  )}
+                </div>
+              </div>
+            )}
+            {isShared && (
+              <div className="text-[10px] text-[#30D158] bg-[#30D158]/10 px-3 py-2 rounded-lg">✓ 已分享到圈子</div>
+            )}
             <div className="flex gap-2">
               <button onClick={handleSave} disabled={saving} className="btn-gold flex-1 py-2.5 text-sm">{saving ? "保存中..." : "保存"}</button>
               <button onClick={() => setEditing(false)} className="btn-glass flex-1 py-2.5 text-sm">取消</button>

@@ -775,3 +775,22 @@ export async function getUpcomingReminders(userId: string) {
       c.next_action_date ASC NULLS LAST
   `);
 }
+
+// ═══ User Tag History (WeChat-style) ═══
+
+export async function getUserTags(userId: string): Promise<string[]> {
+  const db = getDb();
+  // Collect all tags from user's contacts + relationships
+  const rows = await db.execute(sql`
+    SELECT DISTINCT tag FROM (
+      SELECT jsonb_array_elements_text(tags) AS tag FROM my_contacts WHERE user_id = ${userId}
+      UNION ALL
+      SELECT jsonb_array_elements_text(tags) AS tag FROM my_projects WHERE user_id = ${userId}
+      UNION ALL
+      SELECT jsonb_array_elements_text(domain_tags) AS tag FROM relationships WHERE owner_id = ${userId}
+    ) t
+    WHERE tag IS NOT NULL AND tag <> ''
+    ORDER BY tag
+  `);
+  return rows.map((r) => r.tag as string);
+}

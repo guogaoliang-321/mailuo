@@ -146,6 +146,13 @@ myRoutes.post("/contacts/:id/logs/:logId/done", async (c) => {
   return c.json({ success: true });
 });
 
+// ── Tags (WeChat-style) ──
+
+myRoutes.get("/tags", async (c) => {
+  const tags = await neo4jQueries.getUserTags(c.get("userId"));
+  return c.json({ success: true, data: tags });
+});
+
 // ── Reminders ──
 
 myRoutes.get("/reminders", async (c) => {
