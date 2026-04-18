@@ -199,6 +199,7 @@ export const myContacts = pgTable("my_contacts", {
   lastContactedAt: timestamp("last_contacted_at"),
   isShared: boolean("is_shared").default(false),
   sharedCircleId: uuid("shared_circle_id").references(() => circles.id),
+  sharedCircleNames: jsonb("shared_circle_names").$type<string[]>().default([]),
   sharedAlias: varchar("shared_alias", { length: 100 }), // alias when shared (hide real name)
   createdAt: timestamp("created_at").defaultNow().notNull(),
   updatedAt: timestamp("updated_at").defaultNow().notNull(),

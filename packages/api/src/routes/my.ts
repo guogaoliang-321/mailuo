@@ -56,10 +56,20 @@ myRoutes.post("/projects/:id/share", async (c) => {
     circleId: body.circleId ?? null,
   });
 
-  // Mark as shared
-  await db.execute(sql`UPDATE my_projects SET is_shared = true, updated_at = NOW() WHERE id = ${c.req.param("id")}`);
+  // Get circle name
+  let circleName = "所有圈子";
+  if (body.circleId) {
+    const [circle] = await db.execute(sql`SELECT name FROM circles WHERE id = ${body.circleId}`);
+    circleName = (circle?.name as string) ?? "圈子";
+  }
 
-  return c.json({ success: true, data: { sharedId } });
+  // Append circle name and mark as shared
+  const existingNames = (mp.shared_circle_names as string[]) ?? [];
+  if (!existingNames.includes(circleName)) existingNames.push(circleName);
+
+  await db.execute(sql`UPDATE my_projects SET is_shared = true, shared_circle_names = ${JSON.stringify(existingNames)}::jsonb, updated_at = NOW() WHERE id = ${c.req.param("id")}`);
+
+  return c.json({ success: true, data: { sharedId, circleName, sharedCircleNames: existingNames } });
 });
 
 // ── My Contacts ──
@@ -102,6 +112,13 @@ myRoutes.post("/contacts/:id/share", async (c) => {
   const [mc] = await db.execute(sql`SELECT * FROM my_contacts WHERE id = ${c.req.param("id")} AND user_id = ${userId}`);
   if (!mc) return c.json({ success: false, error: "联系人不存在" }, 404);
 
+  // Get circle name
+  let circleName = "所有圈子";
+  if (body.circleId) {
+    const [circle] = await db.execute(sql`SELECT name FROM circles WHERE id = ${body.circleId}`);
+    circleName = (circle?.name as string) ?? "圈子";
+  }
+
   const sharedId = crypto.randomUUID();
   await neo4jQueries.createRelationshipNode({
     id: sharedId,
@@ -116,9 +133,33 @@ myRoutes.post("/contacts/:id/share", async (c) => {
     notes: "",
   });
 
-  await db.execute(sql`UPDATE my_contacts SET is_shared = true, shared_alias = ${body.alias ?? mc.name}, updated_at = NOW() WHERE id = ${c.req.param("id")}`);
+  // Append circle name to shared list
+  const existingNames = (mc.shared_circle_names as string[]) ?? [];
+  if (!existingNames.includes(circleName)) existingNames.push(circleName);
 
-  return c.json({ success: true, data: { sharedId } });
+  await db.execute(sql`UPDATE my_contacts SET is_shared = true, shared_circle_names = ${JSON.stringify(existingNames)}::jsonb, shared_alias = ${body.alias ?? mc.name}, updated_at = NOW() WHERE id = ${c.req.param("id")}`);
+
+  return c.json({ success: true, data: { sharedId, circleName, sharedCircleNames: existingNames } });
+});
+
+// Unshare contact
+myRoutes.post("/contacts/:id/unshare", async (c) => {
+  const userId = c.get("userId");
+  const { getDb } = await import("@meridian/db");
+  const { sql } = await import("drizzle-orm");
+  const db = getDb();
+  await db.execute(sql`UPDATE my_contacts SET is_shared = false, shared_circle_names = '[]'::jsonb, updated_at = NOW() WHERE id = ${c.req.param("id")} AND user_id = ${userId}`);
+  return c.json({ success: true });
+});
+
+// Unshare project
+myRoutes.post("/projects/:id/unshare", async (c) => {
+  const userId = c.get("userId");
+  const { getDb } = await import("@meridian/db");
+  const { sql } = await import("drizzle-orm");
+  const db = getDb();
+  await db.execute(sql`UPDATE my_projects SET is_shared = false, shared_circle_names = '[]'::jsonb, updated_at = NOW() WHERE id = ${c.req.param("id")} AND user_id = ${userId}`);
+  return c.json({ success: true });
 });
 
 // ── Contact Logs ──

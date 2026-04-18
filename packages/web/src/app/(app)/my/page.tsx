@@ -211,8 +211,10 @@ function ContactsTab() {
                 <div className="flex items-center gap-2 flex-wrap">
                   <span className="text-sm text-white/90 font-medium group-hover:text-white transition-colors">{c.name}</span>
                   {c.is_shared
-                    ? <span className="text-[9px] text-[#30D158] bg-[#30D158]/10 px-1.5 py-0.5 rounded">已分享</span>
-                    : <span className="text-[9px] text-white/25 bg-white/5 px-1.5 py-0.5 rounded">私密关系 (仅本人可见)</span>
+                    ? <span className="text-[9px] text-[#30D158] bg-[#30D158]/10 px-1.5 py-0.5 rounded">
+                        已分享到：{((c as unknown as { shared_circle_names?: string[] }).shared_circle_names ?? []).join(", ") || "圈子"}
+                      </span>
+                    : <span className="text-[9px] text-white/25 bg-white/5 px-1.5 py-0.5 rounded">仅自己可见</span>
                   }
                   {c.actionSoon && <span className="text-[9px] text-[#FF9F0A] bg-[#FF9F0A]/10 px-1.5 py-0.5 rounded">待行动</span>}
                   {c.needsReminder && <span className="text-[9px] text-[#FF375F] bg-[#FF375F]/10 px-1.5 py-0.5 rounded">该联络</span>}
@@ -331,8 +333,10 @@ function ProjectsTab() {
                   <div className="flex items-center gap-2 flex-wrap">
                     <h3 className="text-sm text-white/90 font-medium">{p.name}</h3>
                     {p.is_shared
-                      ? <span className="text-[9px] text-[#30D158] bg-[#30D158]/10 px-1.5 py-0.5 rounded">已分享</span>
-                      : <span className="text-[9px] text-white/25 bg-white/5 px-1.5 py-0.5 rounded">私密项目 (仅本人可见)</span>
+                      ? <span className="text-[9px] text-[#30D158] bg-[#30D158]/10 px-1.5 py-0.5 rounded">
+                          已分享到：{((p as unknown as { shared_circle_names?: string[] }).shared_circle_names ?? []).join(", ") || "圈子"}
+                        </span>
+                      : <span className="text-[9px] text-white/25 bg-white/5 px-1.5 py-0.5 rounded">仅自己可见</span>
                     }
                   </div>
                   <div className="text-[11px] text-white/35 mt-0.5">
@@ -394,9 +398,19 @@ function ShareManager({ type, id, isShared, onDone }: { type: "projects" | "cont
       {done && <div className="text-[10px] text-[#30D158] mb-1">{done}</div>}
 
       {!open ? (
-        <button type="button" onClick={() => setOpen(true)} className="text-[11px] transition-colors" style={{ color: isShared ? "rgba(48,209,88,0.7)" : "rgba(90,200,250,0.7)" }}>
-          {isShared ? "🔄 管理分享" : "📤 分享到圈子"}
-        </button>
+        <div className="flex items-center gap-3">
+          <button type="button" onClick={() => setOpen(true)} className="text-[11px] transition-colors" style={{ color: isShared ? "rgba(48,209,88,0.7)" : "rgba(90,200,250,0.7)" }}>
+            {isShared ? "🔄 管理分享" : "📤 分享到圈子"}
+          </button>
+          {isShared && (
+            <button type="button" onClick={async () => {
+              await api.post(`/my/${type}/${id}/unshare`, {});
+              onDone();
+            }} className="text-[11px] text-white/25 hover:text-[#FF375F]/70 transition-colors">
+              🚫 不分享
+            </button>
+          )}
+        </div>
       ) : (
         <div className="p-2.5 rounded-xl bg-white/[0.03] border border-white/[0.06]">
           <div className="text-[10px] text-white/30 mb-2">点击选择圈子：</div>
