@@ -150,16 +150,32 @@ myRoutes.post("/contacts/:id/unshare", async (c) => {
   const { sql } = await import("drizzle-orm");
   const db = getDb();
 
+  // Get the private contact to find its name/alias for matching public pool
+  const [mc] = await db.execute(sql`SELECT * FROM my_contacts WHERE id = ${c.req.param("id")} AND user_id = ${userId}`);
+  if (!mc) return c.json({ success: false, error: "联系人不存在" }, 404);
+
   if (body.circleName) {
-    // Remove one specific circle
-    const [mc] = await db.execute(sql`SELECT shared_circle_names FROM my_contacts WHERE id = ${c.req.param("id")} AND user_id = ${userId}`);
-    const names = ((mc?.shared_circle_names as string[]) ?? []).filter(n => n !== body.circleName);
+    // Remove one specific circle — also delete from public relationships pool
+    if (body.circleName === "所有圈子") {
+      // Shared to all circles = circle_id IS NULL
+      await db.execute(sql`DELETE FROM relationships WHERE owner_id = ${userId} AND alias = ${mc.shared_alias ?? mc.name} AND circle_id IS NULL`);
+    } else {
+      // Shared to specific circle — find circle_id by name
+      const [circle] = await db.execute(sql`SELECT id FROM circles WHERE name = ${body.circleName}`);
+      if (circle) {
+        await db.execute(sql`DELETE FROM relationships WHERE owner_id = ${userId} AND alias = ${mc.shared_alias ?? mc.name} AND circle_id = ${circle.id}`);
+      }
+    }
+
+    const names = ((mc.shared_circle_names as string[]) ?? []).filter(n => n !== body.circleName);
     const isShared = names.length > 0;
-    await db.execute(sql.raw(`UPDATE my_contacts SET is_shared = ${isShared}, shared_circle_names = '${JSON.stringify(names)}'::jsonb, updated_at = NOW() WHERE id = '${c.req.param("id")}' AND user_id = '${userId}'`));
+    await db.execute(sql`UPDATE my_contacts SET is_shared = ${isShared}, shared_circle_names = ${JSON.stringify(names)}::jsonb, updated_at = NOW() WHERE id = ${c.req.param("id")} AND user_id = ${userId}`);
     return c.json({ success: true, data: { sharedCircleNames: names } });
   } else {
-    // Remove all
-    await db.execute(sql.raw(`UPDATE my_contacts SET is_shared = false, shared_circle_names = '[]'::jsonb, updated_at = NOW() WHERE id = '${c.req.param("id")}' AND user_id = '${userId}'`));
+    // Remove all — delete ALL shared relationships for this contact from public pool
+    await db.execute(sql`DELETE FROM relationships WHERE owner_id = ${userId} AND alias = ${mc.shared_alias ?? mc.name}`);
+
+    await db.execute(sql`UPDATE my_contacts SET is_shared = false, shared_circle_names = '[]'::jsonb, updated_at = NOW() WHERE id = ${c.req.param("id")} AND user_id = ${userId}`);
     return c.json({ success: true, data: { sharedCircleNames: [] } });
   }
 });
@@ -172,14 +188,30 @@ myRoutes.post("/projects/:id/unshare", async (c) => {
   const { sql } = await import("drizzle-orm");
   const db = getDb();
 
+  // Get the private project to find its name for matching public pool
+  const [mp] = await db.execute(sql`SELECT * FROM my_projects WHERE id = ${c.req.param("id")} AND user_id = ${userId}`);
+  if (!mp) return c.json({ success: false, error: "项目不存在" }, 404);
+
   if (body.circleName) {
-    const [mp] = await db.execute(sql`SELECT shared_circle_names FROM my_projects WHERE id = ${c.req.param("id")} AND user_id = ${userId}`);
-    const names = ((mp?.shared_circle_names as string[]) ?? []).filter(n => n !== body.circleName);
+    // Remove one specific circle — also delete from public projects pool
+    if (body.circleName === "所有圈子") {
+      await db.execute(sql`DELETE FROM projects WHERE contributor_id = ${userId} AND name = ${mp.name} AND circle_id IS NULL`);
+    } else {
+      const [circle] = await db.execute(sql`SELECT id FROM circles WHERE name = ${body.circleName}`);
+      if (circle) {
+        await db.execute(sql`DELETE FROM projects WHERE contributor_id = ${userId} AND name = ${mp.name} AND circle_id = ${circle.id}`);
+      }
+    }
+
+    const names = ((mp.shared_circle_names as string[]) ?? []).filter(n => n !== body.circleName);
     const isShared = names.length > 0;
-    await db.execute(sql.raw(`UPDATE my_projects SET is_shared = ${isShared}, shared_circle_names = '${JSON.stringify(names)}'::jsonb, updated_at = NOW() WHERE id = '${c.req.param("id")}' AND user_id = '${userId}'`));
+    await db.execute(sql`UPDATE my_projects SET is_shared = ${isShared}, shared_circle_names = ${JSON.stringify(names)}::jsonb, updated_at = NOW() WHERE id = ${c.req.param("id")} AND user_id = ${userId}`);
     return c.json({ success: true, data: { sharedCircleNames: names } });
   } else {
-    await db.execute(sql.raw(`UPDATE my_projects SET is_shared = false, shared_circle_names = '[]'::jsonb, updated_at = NOW() WHERE id = '${c.req.param("id")}' AND user_id = '${userId}'`));
+    // Remove all — delete ALL shared projects for this item from public pool
+    await db.execute(sql`DELETE FROM projects WHERE contributor_id = ${userId} AND name = ${mp.name}`);
+
+    await db.execute(sql`UPDATE my_projects SET is_shared = false, shared_circle_names = '[]'::jsonb, updated_at = NOW() WHERE id = ${c.req.param("id")} AND user_id = ${userId}`);
     return c.json({ success: true, data: { sharedCircleNames: [] } });
   }
 });
