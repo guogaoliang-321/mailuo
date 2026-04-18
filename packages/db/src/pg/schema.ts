@@ -172,10 +172,13 @@ export const myProjects = pgTable("my_projects", {
   region: varchar("region", { length: 100 }),
   tags: jsonb("tags").$type<string[]>().default([]),
   notes: text("notes").default(""),
+  deadline: timestamp("deadline"),
+  deadlineNote: varchar("deadline_note", { length: 200 }),
   nextAction: text("next_action"),
   nextActionDate: timestamp("next_action_date"),
   isShared: boolean("is_shared").default(false),
   sharedCircleId: uuid("shared_circle_id").references(() => circles.id),
+  sharedCircleNames: jsonb("shared_circle_names").$type<string[]>().default([]),
   createdAt: timestamp("created_at").defaultNow().notNull(),
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
 });

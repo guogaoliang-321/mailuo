@@ -171,14 +171,18 @@ function ContactsTab() {
         </div>
       ) : (
         contacts.map((c) => (
-          <Link key={c.id} href={`/my/contacts/${c.id}`} className="glass-card p-4 block group" style={{ marginBottom: 0, borderColor: c.actionSoon ? "rgba(255,159,10,0.2)" : c.needsReminder ? "rgba(255,55,95,0.15)" : undefined }}>
-            <div className="flex items-start gap-3">
+          <div key={c.id} className="glass-card p-4" style={{ marginBottom: 0, borderColor: c.actionSoon ? "rgba(255,159,10,0.2)" : c.needsReminder ? "rgba(255,55,95,0.15)" : undefined }}>
+            <Link href={`/my/contacts/${c.id}`} className="flex items-start gap-3 group">
               <div className="w-9 h-9 rounded-full bg-[#D4A853]/15 text-[#D4A853] text-sm font-bold flex items-center justify-center shrink-0">
                 {c.name[0]}
               </div>
               <div className="flex-1 min-w-0">
-                <div className="flex items-center gap-2">
-                  <span className="text-sm text-white/90 font-medium">{c.name}</span>
+                <div className="flex items-center gap-2 flex-wrap">
+                  <span className="text-sm text-white/90 font-medium group-hover:text-white transition-colors">{c.name}</span>
+                  {c.is_shared
+                    ? <span className="text-[9px] text-[#30D158] bg-[#30D158]/10 px-1.5 py-0.5 rounded">已分享</span>
+                    : <span className="text-[9px] text-white/25 bg-white/5 px-1.5 py-0.5 rounded">私有</span>
+                  }
                   {c.actionSoon && <span className="text-[9px] text-[#FF9F0A] bg-[#FF9F0A]/10 px-1.5 py-0.5 rounded">待行动</span>}
                   {c.needsReminder && <span className="text-[9px] text-[#FF375F] bg-[#FF375F]/10 px-1.5 py-0.5 rounded">该联络</span>}
                 </div>
@@ -203,8 +207,14 @@ function ContactsTab() {
                   <div key={i} className={`w-1.5 h-1.5 rounded-full ${i <= (c.closeness ?? 3) ? "bg-[#D4A853]" : "bg-white/10"}`} />
                 ))}
               </div>
-            </div>
-          </Link>
+            </Link>
+            {/* Share button for unshared contacts */}
+            {!c.is_shared && (
+              <div className="mt-2 ml-12">
+                <ShareToCircleBtn type="contacts" id={c.id} onDone={() => queryClient.invalidateQueries({ queryKey: ["my-contacts"] })} />
+              </div>
+            )}
+          </div>
         ))
       )}
     </div>
@@ -218,13 +228,13 @@ function ProjectsTab() {
   const [showForm, setShowForm] = useState(false);
   const projects = data?.data ?? [];
 
-  const [form, setForm] = useState({ name: "", stage: "prospecting", client: "", budget: "", region: "", notes: "", nextAction: "", nextActionDate: "" });
+  const [form, setForm] = useState({ name: "", stage: "prospecting", client: "", budget: "", region: "", notes: "", nextAction: "", nextActionDate: "", deadline: "", deadlineNote: "" });
 
   const handleCreate = async (e: React.FormEvent) => {
     e.preventDefault();
-    await api.post("/my/projects", { ...form, nextActionDate: form.nextActionDate || undefined });
+    await api.post("/my/projects", { ...form, nextActionDate: form.nextActionDate || undefined, deadline: form.deadline || undefined });
     setShowForm(false);
-    setForm({ name: "", stage: "prospecting", client: "", budget: "", region: "", notes: "", nextAction: "", nextActionDate: "" });
+    setForm({ name: "", stage: "prospecting", client: "", budget: "", region: "", notes: "", nextAction: "", nextActionDate: "", deadline: "", deadlineNote: "" });
     queryClient.invalidateQueries({ queryKey: ["my-projects"] });
   };
 
@@ -245,6 +255,16 @@ function ProjectsTab() {
             <input type="text" value={form.budget} onChange={(e) => setForm({...form, budget: e.target.value})} placeholder="预算" className="input-dark text-sm py-2" />
           </div>
           <input type="text" value={form.region} onChange={(e) => setForm({...form, region: e.target.value})} placeholder="区域" className="input-dark text-sm py-2" />
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <label className="block text-[10px] text-white/30 mb-1">项目有效期/关键节点</label>
+              <input type="date" value={form.deadline} onChange={(e) => setForm({...form, deadline: e.target.value})} className="input-dark text-sm py-2" />
+            </div>
+            <div>
+              <label className="block text-[10px] text-white/30 mb-1">节点说明</label>
+              <input type="text" value={form.deadlineNote} onChange={(e) => setForm({...form, deadlineNote: e.target.value})} placeholder="如：可研启动/招标截止" className="input-dark text-sm py-2" />
+            </div>
+          </div>
           <textarea value={form.notes} onChange={(e) => setForm({...form, notes: e.target.value})} placeholder="备注" rows={2} className="input-dark text-sm py-2 resize-none" />
           <button type="submit" className="btn-gold w-full py-2.5 text-sm">保存项目</button>
         </form>
@@ -262,11 +282,22 @@ function ProjectsTab() {
           return (
             <div key={p.id} className="glass-card p-4" style={{ marginBottom: 0 }}>
               <div className="flex items-start justify-between gap-3">
-                <div className="min-w-0">
-                  <h3 className="text-sm text-white/90 font-medium">{p.name}</h3>
+                <div className="min-w-0 flex-1">
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <h3 className="text-sm text-white/90 font-medium">{p.name}</h3>
+                    {p.is_shared
+                      ? <span className="text-[9px] text-[#30D158] bg-[#30D158]/10 px-1.5 py-0.5 rounded">已分享</span>
+                      : <span className="text-[9px] text-white/25 bg-white/5 px-1.5 py-0.5 rounded">私有</span>
+                    }
+                  </div>
                   <div className="text-[11px] text-white/35 mt-0.5">
                     {[p.client, p.region, p.budget].filter(Boolean).join(" · ")}
                   </div>
+                  {(p as Record<string, unknown>).deadline && (
+                    <div className="text-[10px] text-[#FF9F0A]/70 mt-1">
+                      ⏰ {(p as Record<string, unknown>).deadline_note ?? "关键节点"}: {new Date((p as Record<string, unknown>).deadline as string).toLocaleDateString("zh-CN")}
+                    </div>
+                  )}
                   {p.next_action && (
                     <div className="text-[10px] text-white/30 mt-1">
                       📌 {p.next_action} {p.next_action_date ? `(${new Date(p.next_action_date).toLocaleDateString("zh-CN")})` : ""}
@@ -278,10 +309,59 @@ function ProjectsTab() {
                   {STAGE_LABELS[p.stage] ?? p.stage}
                 </span>
               </div>
+              {/* Share button */}
+              {!p.is_shared && (
+                <div className="mt-2">
+                  <ShareToCircleBtn type="projects" id={p.id} onDone={() => queryClient.invalidateQueries({ queryKey: ["my-projects"] })} />
+                </div>
+              )}
             </div>
           );
         })
       )}
+    </div>
+  );
+}
+
+// ── Share to Circle Button ──
+function ShareToCircleBtn({ type, id, onDone }: { type: "projects" | "contacts"; id: string; onDone: () => void }) {
+  const [open, setOpen] = useState(false);
+  const [sharing, setSharing] = useState(false);
+
+  const { data: circlesData } = useQuery({
+    queryKey: ["circles"],
+    queryFn: () => api.get<Array<{ id: string; name: string }>>("/circles"),
+    enabled: open,
+  });
+  const circles = circlesData?.data ?? [];
+
+  const handleShare = async (circleId?: string) => {
+    setSharing(true);
+    await api.post(`/my/${type}/${id}/share`, { circleId });
+    setSharing(false);
+    setOpen(false);
+    onDone();
+  };
+
+  if (!open) {
+    return (
+      <button onClick={() => setOpen(true)} className="text-[11px] text-[#5AC8FA]/70 hover:text-[#5AC8FA] transition-colors">
+        📤 分享到圈子
+      </button>
+    );
+  }
+
+  return (
+    <div className="flex flex-wrap gap-1.5 items-center">
+      <button onClick={() => handleShare()} disabled={sharing} className="text-[10px] px-2 py-1 rounded-lg bg-[#5AC8FA]/10 text-[#5AC8FA] hover:bg-[#5AC8FA]/20 transition-colors">
+        {sharing ? "..." : "所有圈子"}
+      </button>
+      {circles.map((c) => (
+        <button key={c.id} onClick={() => handleShare(c.id)} disabled={sharing} className="text-[10px] px-2 py-1 rounded-lg bg-white/5 text-white/50 hover:bg-white/10 transition-colors">
+          {c.name}
+        </button>
+      ))}
+      <button onClick={() => setOpen(false)} className="text-[10px] text-white/25 ml-1">取消</button>
     </div>
   );
 }

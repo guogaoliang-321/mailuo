@@ -615,11 +615,13 @@ export async function createMyProject(data: {
   userId: string; name: string; stage?: string; client?: string;
   budget?: string; region?: string; tags?: string[]; notes?: string;
   nextAction?: string; nextActionDate?: string; isShared?: boolean;
+  deadline?: string; deadlineNote?: string; sharedCircleNames?: string[];
 }) {
   const db = getDb();
   const [row] = await db.insert(s.myProjects).values({
     ...data,
     nextActionDate: data.nextActionDate ? new Date(data.nextActionDate) : undefined,
+    deadline: data.deadline ? new Date(data.deadline) : undefined,
   }).returning();
   return row;
 }
@@ -627,7 +629,7 @@ export async function createMyProject(data: {
 export async function updateMyProject(id: string, userId: string, data: Record<string, unknown>) {
   const db = getDb();
   const vals: Record<string, unknown> = { updatedAt: new Date() };
-  const allowed = ["name","stage","client","budget","region","tags","notes","nextAction","nextActionDate","isShared","sharedCircleId"];
+  const allowed = ["name","stage","client","budget","region","tags","notes","nextAction","nextActionDate","isShared","sharedCircleId","sharedCircleNames","deadline","deadlineNote"];
   for (const k of allowed) {
     if (data[k] !== undefined) {
       const col = k.replace(/[A-Z]/g, c => "_" + c.toLowerCase());
