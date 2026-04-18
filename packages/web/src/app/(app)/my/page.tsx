@@ -293,9 +293,9 @@ function ProjectsTab() {
                   <div className="text-[11px] text-white/35 mt-0.5">
                     {[p.client, p.region, p.budget].filter(Boolean).join(" · ")}
                   </div>
-                  {(p as Record<string, unknown>).deadline && (
+                  {(p as unknown as { deadline?: string }).deadline && (
                     <div className="text-[10px] text-[#FF9F0A]/70 mt-1">
-                      ⏰ {(p as Record<string, unknown>).deadline_note ?? "关键节点"}: {new Date((p as Record<string, unknown>).deadline as string).toLocaleDateString("zh-CN")}
+                      ⏰ {String((p as unknown as { deadline_note?: string }).deadline_note ?? "关键节点")}: {new Date((p as unknown as { deadline: string }).deadline).toLocaleDateString("zh-CN")}
                     </div>
                   )}
                   {p.next_action && (
