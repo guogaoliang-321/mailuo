@@ -12,6 +12,7 @@ import { meritRoutes } from "./routes/merit.js";
 import { adminRoutes } from "./routes/admin.js";
 import { recommendationRoutes } from "./routes/recommendations.js";
 import { plazaRoutes } from "./routes/plaza.js";
+import { myRoutes } from "./routes/my.js";
 import { auditMiddleware } from "./middleware/audit.js";
 import type { AppEnv } from "./types.js";
 
@@ -39,6 +40,7 @@ app.route("/api/v1/merit", meritRoutes);
 app.route("/api/v1/admin", adminRoutes);
 app.route("/api/v1/recommendations", recommendationRoutes);
 app.route("/api/v1/plaza", plazaRoutes);
+app.route("/api/v1/my", myRoutes);
 
 const port = Number(process.env.API_PORT ?? 4000);
 

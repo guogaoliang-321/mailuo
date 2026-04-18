@@ -567,3 +567,176 @@ export async function getPlazaMessages(userId: string, limit = 30) {
     LIMIT ${limit}
   `);
 }
+
+// ═══ Personal CRM: My Projects ═══
+
+export async function getMyProjects(userId: string) {
+  const db = getDb();
+  return db.execute(sql`
+    SELECT * FROM my_projects WHERE user_id = ${userId}
+    ORDER BY updated_at DESC
+  `);
+}
+
+export async function createMyProject(data: {
+  userId: string; name: string; stage?: string; client?: string;
+  budget?: string; region?: string; tags?: string[]; notes?: string;
+  nextAction?: string; nextActionDate?: string;
+}) {
+  const db = getDb();
+  const [row] = await db.insert(s.myProjects).values({
+    ...data,
+    nextActionDate: data.nextActionDate ? new Date(data.nextActionDate) : undefined,
+  }).returning();
+  return row;
+}
+
+export async function updateMyProject(id: string, userId: string, data: Record<string, unknown>) {
+  const db = getDb();
+  const vals: Record<string, unknown> = { updatedAt: new Date() };
+  const allowed = ["name","stage","client","budget","region","tags","notes","nextAction","nextActionDate","isShared","sharedCircleId"];
+  for (const k of allowed) {
+    if (data[k] !== undefined) {
+      const col = k.replace(/[A-Z]/g, c => "_" + c.toLowerCase());
+      vals[col] = k === "nextActionDate" && data[k] ? new Date(data[k] as string) : data[k];
+    }
+  }
+  await db.execute(sql`UPDATE my_projects SET ${sql.raw(
+    Object.entries(vals).map(([k,v]) => {
+      if (v instanceof Date) return `${k} = '${v.toISOString()}'`;
+      if (typeof v === 'boolean') return `${k} = ${v}`;
+      if (v === null) return `${k} = NULL`;
+      if (Array.isArray(v)) return `${k} = '${JSON.stringify(v)}'::jsonb`;
+      return `${k} = '${String(v).replace(/'/g,"''")}'`;
+    }).join(", ")
+  )} WHERE id = ${id} AND user_id = ${userId}`);
+}
+
+export async function deleteMyProject(id: string, userId: string) {
+  const db = getDb();
+  await db.execute(sql`DELETE FROM my_projects WHERE id = ${id} AND user_id = ${userId}`);
+}
+
+// ═══ Personal CRM: My Contacts ═══
+
+export async function getMyContacts(userId: string) {
+  const db = getDb();
+  return db.execute(sql`
+    SELECT c.*,
+      CASE WHEN c.reminder_days IS NOT NULL AND c.last_contacted_at IS NOT NULL
+        THEN c.last_contacted_at + (c.reminder_days || ' days')::interval < NOW()
+        ELSE false END AS "needsReminder",
+      CASE WHEN c.next_action_date IS NOT NULL
+        THEN c.next_action_date <= NOW() + INTERVAL '3 days'
+        ELSE false END AS "actionSoon"
+    FROM my_contacts c
+    WHERE c.user_id = ${userId}
+    ORDER BY
+      CASE WHEN c.next_action_date IS NOT NULL AND c.next_action_date <= NOW() + INTERVAL '3 days' THEN 0 ELSE 1 END,
+      c.updated_at DESC
+  `);
+}
+
+export async function createMyContact(data: {
+  userId: string; name: string; company?: string; title?: string;
+  phone?: string; tags?: string[]; closeness?: number; notes?: string;
+  nextAction?: string; nextActionDate?: string; reminderDays?: number;
+}) {
+  const db = getDb();
+  const [row] = await db.insert(s.myContacts).values({
+    ...data,
+    nextActionDate: data.nextActionDate ? new Date(data.nextActionDate) : undefined,
+  }).returning();
+  return row;
+}
+
+export async function updateMyContact(id: string, userId: string, data: Record<string, unknown>) {
+  const db = getDb();
+  const vals: Record<string, unknown> = { updatedAt: new Date() };
+  const allowed = ["name","company","title","phone","tags","closeness","notes","nextAction","nextActionDate","reminderDays","lastContactedAt","isShared","sharedCircleId","sharedAlias"];
+  for (const k of allowed) {
+    if (data[k] !== undefined) {
+      const col = k.replace(/[A-Z]/g, c => "_" + c.toLowerCase());
+      vals[col] = (k === "nextActionDate" || k === "lastContactedAt") && data[k] ? new Date(data[k] as string) : data[k];
+    }
+  }
+  await db.execute(sql`UPDATE my_contacts SET ${sql.raw(
+    Object.entries(vals).map(([k,v]) => {
+      if (v instanceof Date) return `${k} = '${v.toISOString()}'`;
+      if (typeof v === 'boolean') return `${k} = ${v}`;
+      if (typeof v === 'number') return `${k} = ${v}`;
+      if (v === null) return `${k} = NULL`;
+      if (Array.isArray(v)) return `${k} = '${JSON.stringify(v)}'::jsonb`;
+      return `${k} = '${String(v).replace(/'/g,"''")}'`;
+    }).join(", ")
+  )} WHERE id = ${id} AND user_id = ${userId}`);
+}
+
+export async function deleteMyContact(id: string, userId: string) {
+  const db = getDb();
+  await db.execute(sql`DELETE FROM my_contacts WHERE id = ${id} AND user_id = ${userId}`);
+}
+
+export async function getMyContactById(id: string, userId: string) {
+  const db = getDb();
+  const rows = await db.execute(sql`SELECT * FROM my_contacts WHERE id = ${id} AND user_id = ${userId}`);
+  return rows[0] ?? null;
+}
+
+// ═══ Contact Logs ═══
+
+export async function addContactLog(data: {
+  contactId: string; userId: string; type: string; content: string; planDate?: string;
+}) {
+  const db = getDb();
+  const [row] = await db.insert(s.contactLogs).values({
+    ...data,
+    planDate: data.planDate ? new Date(data.planDate) : undefined,
+  }).returning();
+  // Update last contacted time
+  if (data.type !== "plan") {
+    await db.execute(sql`UPDATE my_contacts SET last_contacted_at = NOW(), updated_at = NOW() WHERE id = ${data.contactId}`);
+  }
+  return row;
+}
+
+export async function getContactLogs(contactId: string) {
+  const db = getDb();
+  return db.execute(sql`
+    SELECT * FROM contact_logs WHERE contact_id = ${contactId} ORDER BY created_at DESC
+  `);
+}
+
+export async function markPlanDone(logId: string, userId: string) {
+  const db = getDb();
+  await db.execute(sql`UPDATE contact_logs SET plan_done = true WHERE id = ${logId} AND user_id = ${userId}`);
+}
+
+// ═══ Reminders (for homepage) ═══
+
+export async function getUpcomingReminders(userId: string) {
+  const db = getDb();
+  // Contacts needing attention: overdue plans + reminder cycles
+  return db.execute(sql`
+    SELECT c.id, c.name, c.company, c.title, c.next_action, c.next_action_date,
+           c.reminder_days, c.last_contacted_at, c.tags,
+           CASE WHEN c.next_action_date IS NOT NULL AND c.next_action_date <= NOW()
+             THEN 'overdue'
+             WHEN c.next_action_date IS NOT NULL AND c.next_action_date <= NOW() + INTERVAL '3 days'
+             THEN 'upcoming'
+             WHEN c.reminder_days IS NOT NULL AND c.last_contacted_at IS NOT NULL
+               AND c.last_contacted_at + (c.reminder_days || ' days')::interval < NOW()
+             THEN 'cycle_due'
+             ELSE 'ok' END AS "urgency"
+    FROM my_contacts c
+    WHERE c.user_id = ${userId}
+      AND (
+        (c.next_action_date IS NOT NULL AND c.next_action_date <= NOW() + INTERVAL '3 days')
+        OR (c.reminder_days IS NOT NULL AND c.last_contacted_at IS NOT NULL
+            AND c.last_contacted_at + (c.reminder_days || ' days')::interval < NOW())
+      )
+    ORDER BY
+      CASE WHEN c.next_action_date <= NOW() THEN 0 ELSE 1 END,
+      c.next_action_date ASC NULLS LAST
+  `);
+}

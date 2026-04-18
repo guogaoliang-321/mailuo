@@ -152,6 +152,58 @@ export const plazaMessages = pgTable("plaza_messages", {
 });
 
 // Comments on projects/relationships/requests
+// ═══ Personal CRM ═══
+
+export const myProjects = pgTable("my_projects", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  userId: uuid("user_id").references(() => users.id).notNull(),
+  name: varchar("name", { length: 200 }).notNull(),
+  stage: varchar("stage", { length: 30 }).default("prospecting").notNull(),
+  client: varchar("client", { length: 200 }),
+  budget: varchar("budget", { length: 100 }),
+  region: varchar("region", { length: 100 }),
+  tags: jsonb("tags").$type<string[]>().default([]),
+  notes: text("notes").default(""),
+  nextAction: text("next_action"),
+  nextActionDate: timestamp("next_action_date"),
+  isShared: boolean("is_shared").default(false),
+  sharedCircleId: uuid("shared_circle_id").references(() => circles.id),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+});
+
+export const myContacts = pgTable("my_contacts", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  userId: uuid("user_id").references(() => users.id).notNull(),
+  name: varchar("name", { length: 100 }).notNull(),
+  company: varchar("company", { length: 200 }),
+  title: varchar("title", { length: 100 }),
+  phone: varchar("phone", { length: 50 }),
+  tags: jsonb("tags").$type<string[]>().default([]),
+  closeness: integer("closeness").default(3),
+  notes: text("notes").default(""),
+  nextAction: text("next_action"),
+  nextActionDate: timestamp("next_action_date"),
+  reminderDays: integer("reminder_days"), // auto remind every N days
+  lastContactedAt: timestamp("last_contacted_at"),
+  isShared: boolean("is_shared").default(false),
+  sharedCircleId: uuid("shared_circle_id").references(() => circles.id),
+  sharedAlias: varchar("shared_alias", { length: 100 }), // alias when shared (hide real name)
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+});
+
+export const contactLogs = pgTable("contact_logs", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  contactId: uuid("contact_id").references(() => myContacts.id).notNull(),
+  userId: uuid("user_id").references(() => users.id).notNull(),
+  type: varchar("type", { length: 20 }).default("note").notNull(), // note, meeting, call, wechat, dinner, plan
+  content: text("content").notNull(),
+  planDate: timestamp("plan_date"), // for type=plan
+  planDone: boolean("plan_done").default(false),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+
 export const comments = pgTable("comments", {
   id: uuid("id").primaryKey().defaultRandom(),
   entityType: varchar("entity_type", { length: 30 }).notNull(), // 'project' | 'relationship' | 'request'

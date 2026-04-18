@@ -6,6 +6,7 @@ import { useAuth } from "@/lib/auth";
 
 const navItems = [
   { href: "/", label: "网络", icon: "◎" },
+  { href: "/my", label: "我的", icon: "♦" },
   { href: "/projects", label: "项目池", icon: "◈" },
   { href: "/relationships", label: "关系池", icon: "◇" },
   { href: "/requests", label: "对接流", icon: "⇌" },
