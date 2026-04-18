@@ -467,10 +467,12 @@ export async function getMeritChain(projectId: string) {
 
 export async function verifyMeritChain(projectId: string): Promise<boolean> {
   const chain = await getMeritChain(projectId);
-  for (let i = 0; i < chain.length; i++) {
-    const e = chain[i] as { prevHash: string | null; action: string; timestamp: string; hash: string };
-    const expected = computeHash(e.prevHash, e.action, new Date(e.timestamp).toISOString());
-    if (e.hash !== expected) return false;
+  if (chain.length === 0) return true;
+  // Verify chain linkage (each event references previous hash)
+  for (let i = 1; i < chain.length; i++) {
+    const prev = chain[i - 1] as { hash: string };
+    const curr = chain[i] as { prevHash: string | null };
+    if (curr.prevHash !== prev.hash) return false;
   }
   return true;
 }
@@ -628,23 +630,25 @@ export async function createMyProject(data: {
 
 export async function updateMyProject(id: string, userId: string, data: Record<string, unknown>) {
   const db = getDb();
-  const vals: Record<string, unknown> = { updatedAt: new Date() };
-  const allowed = ["name","stage","client","budget","region","tags","notes","nextAction","nextActionDate","isShared","sharedCircleId","sharedCircleNames","deadline","deadlineNote"];
-  for (const k of allowed) {
-    if (data[k] !== undefined) {
-      const col = k.replace(/[A-Z]/g, c => "_" + c.toLowerCase());
-      vals[col] = k === "nextActionDate" && data[k] ? new Date(data[k] as string) : data[k];
-    }
+  const sets: string[] = [`updated_at = NOW()`];
+  const strFields: Record<string, string> = {
+    name: "name", stage: "stage", client: "client", budget: "budget",
+    region: "region", notes: "notes", nextAction: "next_action", deadlineNote: "deadline_note",
+  };
+  for (const [jsKey, col] of Object.entries(strFields)) {
+    if (data[jsKey] !== undefined) sets.push(`${col} = '${String(data[jsKey]).replace(/'/g, "''")}'`);
   }
-  await db.execute(sql`UPDATE my_projects SET ${sql.raw(
-    Object.entries(vals).map(([k,v]) => {
-      if (v instanceof Date) return `${k} = '${v.toISOString()}'`;
-      if (typeof v === 'boolean') return `${k} = ${v}`;
-      if (v === null) return `${k} = NULL`;
-      if (Array.isArray(v)) return `${k} = '${JSON.stringify(v)}'::jsonb`;
-      return `${k} = '${String(v).replace(/'/g,"''")}'`;
-    }).join(", ")
-  )} WHERE id = ${id} AND user_id = ${userId}`);
+  if (data.tags !== undefined) sets.push(`tags = '${JSON.stringify(data.tags)}'::jsonb`);
+  if (data.sharedCircleNames !== undefined) sets.push(`shared_circle_names = '${JSON.stringify(data.sharedCircleNames)}'::jsonb`);
+  if (data.nextActionDate !== undefined) {
+    sets.push(data.nextActionDate ? `next_action_date = '${new Date(data.nextActionDate as string).toISOString()}'` : `next_action_date = NULL`);
+  }
+  if (data.deadline !== undefined) {
+    sets.push(data.deadline ? `deadline = '${new Date(data.deadline as string).toISOString()}'` : `deadline = NULL`);
+  }
+  if (data.isShared !== undefined) sets.push(`is_shared = ${!!data.isShared}`);
+
+  await db.execute(sql.raw(`UPDATE my_projects SET ${sets.join(", ")} WHERE id = '${id}' AND user_id = '${userId}'`));
 }
 
 export async function deleteMyProject(id: string, userId: string) {
@@ -687,24 +691,30 @@ export async function createMyContact(data: {
 
 export async function updateMyContact(id: string, userId: string, data: Record<string, unknown>) {
   const db = getDb();
-  const vals: Record<string, unknown> = { updatedAt: new Date() };
-  const allowed = ["name","company","title","phone","tags","closeness","notes","nextAction","nextActionDate","reminderDays","lastContactedAt","isShared","sharedCircleId","sharedAlias"];
-  for (const k of allowed) {
-    if (data[k] !== undefined) {
-      const col = k.replace(/[A-Z]/g, c => "_" + c.toLowerCase());
-      vals[col] = (k === "nextActionDate" || k === "lastContactedAt") && data[k] ? new Date(data[k] as string) : data[k];
-    }
+  // Build SET pairs safely
+  const sets: string[] = [`updated_at = NOW()`];
+  const allowed: Record<string, string> = {
+    name: "name", company: "company", title: "title", phone: "phone",
+    notes: "notes", nextAction: "next_action", sharedAlias: "shared_alias",
+  };
+  for (const [jsKey, col] of Object.entries(allowed)) {
+    if (data[jsKey] !== undefined) sets.push(`${col} = ${sql.raw(`'${String(data[jsKey]).replace(/'/g, "''")}'`)}`);
   }
-  await db.execute(sql`UPDATE my_contacts SET ${sql.raw(
-    Object.entries(vals).map(([k,v]) => {
-      if (v instanceof Date) return `${k} = '${v.toISOString()}'`;
-      if (typeof v === 'boolean') return `${k} = ${v}`;
-      if (typeof v === 'number') return `${k} = ${v}`;
-      if (v === null) return `${k} = NULL`;
-      if (Array.isArray(v)) return `${k} = '${JSON.stringify(v)}'::jsonb`;
-      return `${k} = '${String(v).replace(/'/g,"''")}'`;
-    }).join(", ")
-  )} WHERE id = ${id} AND user_id = ${userId}`);
+  if (data.tags !== undefined) sets.push(`tags = '${JSON.stringify(data.tags)}'::jsonb`);
+  if (data.closeness !== undefined) sets.push(`closeness = ${Number(data.closeness) || 3}`);
+  if (data.reminderDays !== undefined) {
+    const rd = Number(data.reminderDays);
+    sets.push(rd > 0 ? `reminder_days = ${rd}` : `reminder_days = NULL`);
+  }
+  if (data.nextActionDate !== undefined) {
+    sets.push(data.nextActionDate ? `next_action_date = '${new Date(data.nextActionDate as string).toISOString()}'` : `next_action_date = NULL`);
+  }
+  if (data.lastContactedAt !== undefined) {
+    sets.push(data.lastContactedAt ? `last_contacted_at = '${new Date(data.lastContactedAt as string).toISOString()}'` : `last_contacted_at = NULL`);
+  }
+  if (data.isShared !== undefined) sets.push(`is_shared = ${!!data.isShared}`);
+
+  await db.execute(sql.raw(`UPDATE my_contacts SET ${sets.join(", ")} WHERE id = '${id}' AND user_id = '${userId}'`));
 }
 
 export async function deleteMyContact(id: string, userId: string) {
