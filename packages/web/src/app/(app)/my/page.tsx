@@ -243,7 +243,7 @@ function ContactsTab() {
             </Link>
             {/* Share management */}
             <div className="mt-2 ml-12">
-              <ShareManager type="contacts" id={c.id} isShared={!!c.is_shared} onDone={() => queryClient.invalidateQueries({ queryKey: ["my-contacts"] })} />
+              <ShareManager type="contacts" id={c.id} isShared={!!c.is_shared} sharedNames={(c as unknown as { shared_circle_names?: string[] }).shared_circle_names ?? []} onDone={() => queryClient.invalidateQueries({ queryKey: ["my-contacts"] })} />
             </div>
           </div>
         ))
@@ -360,7 +360,7 @@ function ProjectsTab() {
               </div>
               {/* Share management */}
               <div className="mt-2" onClick={(e) => { e.preventDefault(); e.stopPropagation(); }}>
-                <ShareManager type="projects" id={p.id} isShared={!!p.is_shared} onDone={() => queryClient.invalidateQueries({ queryKey: ["my-projects"] })} />
+                <ShareManager type="projects" id={p.id} isShared={!!p.is_shared} sharedNames={(p as unknown as { shared_circle_names?: string[] }).shared_circle_names ?? []} onDone={() => queryClient.invalidateQueries({ queryKey: ["my-projects"] })} />
               </div>
             </Link>
           );
@@ -370,11 +370,9 @@ function ProjectsTab() {
   );
 }
 
-// ── Share Manager (multi-select, always editable) ──
-function ShareManager({ type, id, isShared, onDone }: { type: "projects" | "contacts"; id: string; isShared: boolean; onDone: () => void }) {
+// ── Share Manager (WeChat-style toggle) ──
+function ShareManager({ type, id, isShared, sharedNames = [], onDone }: { type: "projects" | "contacts"; id: string; isShared: boolean; sharedNames?: string[]; onDone: () => void }) {
   const [open, setOpen] = useState(false);
-  const [sharing, setSharing] = useState(false);
-  const [done, setDone] = useState("");
 
   const { data: circlesData } = useQuery({
     queryKey: ["circles"],
@@ -382,49 +380,47 @@ function ShareManager({ type, id, isShared, onDone }: { type: "projects" | "cont
   });
   const circles = circlesData?.data ?? [];
 
-  const handleShare = async (circleName: string, circleId?: string) => {
-    setSharing(true);
-    const res = await api.post(`/my/${type}/${id}/share`, { circleId });
-    setSharing(false);
-    if (res.success) {
-      setDone(`✓ 已分享到${circleName}`);
-      setTimeout(() => setDone(""), 3000);
-      onDone();
-    }
+  // Toggle: share or unshare a specific circle
+  const toggleCircle = async (circleName: string, circleId?: string) => {
+    await api.post(`/my/${type}/${id}/share`, { circleId });
+    onDone();
+  };
+
+  const handleUnshare = async () => {
+    await api.post(`/my/${type}/${id}/unshare`, {});
+    onDone();
   };
 
   return (
     <div onClick={(e) => { e.preventDefault(); e.stopPropagation(); }}>
-      {done && <div className="text-[10px] text-[#30D158] mb-1">{done}</div>}
-
       {!open ? (
         <div className="flex items-center gap-3">
           <button type="button" onClick={() => setOpen(true)} className="text-[11px] transition-colors" style={{ color: isShared ? "rgba(48,209,88,0.7)" : "rgba(90,200,250,0.7)" }}>
             {isShared ? "🔄 管理分享" : "📤 分享到圈子"}
           </button>
           {isShared && (
-            <button type="button" onClick={async () => {
-              await api.post(`/my/${type}/${id}/unshare`, {});
-              onDone();
-            }} className="text-[11px] text-white/25 hover:text-[#FF375F]/70 transition-colors">
+            <button type="button" onClick={handleUnshare} className="text-[11px] text-white/25 hover:text-[#FF375F]/70 transition-colors">
               🚫 不分享
             </button>
           )}
         </div>
       ) : (
         <div className="p-2.5 rounded-xl bg-white/[0.03] border border-white/[0.06]">
-          <div className="text-[10px] text-white/30 mb-2">点击选择圈子：</div>
+          <div className="text-[10px] text-white/30 mb-2">点击选择/取消圈子：</div>
           <div className="flex flex-wrap gap-1.5">
-            <button type="button" onClick={() => handleShare("所有圈子")} disabled={sharing}
-              className="text-[10px] px-2.5 py-1.5 rounded-lg bg-[#5AC8FA]/15 text-[#5AC8FA] hover:bg-[#5AC8FA]/25 transition-colors cursor-pointer">
-              {sharing ? "分享中..." : "📢 所有圈子"}
-            </button>
-            {circles.map((c) => (
-              <button type="button" key={c.id} onClick={() => handleShare(c.name, c.id)} disabled={sharing}
-                className="text-[10px] px-2.5 py-1.5 rounded-lg bg-white/[0.06] text-white/60 hover:bg-white/[0.12] hover:text-white/80 transition-colors cursor-pointer">
-                {c.name}
-              </button>
-            ))}
+            {circles.map((c) => {
+              const isSelected = sharedNames.includes(c.name);
+              return (
+                <button type="button" key={c.id} onClick={() => isSelected ? handleUnshare() : toggleCircle(c.name, c.id)}
+                  className={`text-[10px] px-2.5 py-1.5 rounded-lg transition-colors cursor-pointer ${
+                    isSelected
+                      ? "bg-[#30D158]/20 text-[#30D158] border border-[#30D158]/30"
+                      : "bg-white/[0.06] text-white/60 hover:bg-white/[0.12]"
+                  }`}>
+                  {isSelected ? "✓ " : ""}{c.name}
+                </button>
+              );
+            })}
           </div>
           <button type="button" onClick={() => setOpen(false)} className="text-[10px] text-white/25 mt-2 block cursor-pointer">收起 ▲</button>
         </div>
