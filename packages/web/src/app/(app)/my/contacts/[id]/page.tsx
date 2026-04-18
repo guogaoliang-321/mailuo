@@ -86,7 +86,13 @@ export default function ContactDetailPage() {
             {contact.name[0]}
           </div>
           <div className="flex-1">
-            <h1 className="text-lg text-white/95 font-bold">{contact.name}</h1>
+            <div className="flex items-center gap-2 flex-wrap">
+              <h1 className="text-lg text-white/95 font-bold">{contact.name}</h1>
+              {(contact as unknown as { is_shared?: boolean }).is_shared
+                ? <span className="text-[9px] text-[#30D158] bg-[#30D158]/10 px-1.5 py-0.5 rounded">已分享到圈子</span>
+                : <span className="text-[9px] text-white/25 bg-white/5 px-1.5 py-0.5 rounded">私有</span>
+              }
+            </div>
             <div className="text-sm text-white/40 mt-0.5">
               {[contact.company, contact.title].filter(Boolean).join(" · ")}
             </div>
@@ -131,6 +137,13 @@ export default function ContactDetailPage() {
         {contact.notes && (
           <div className="mt-3 pt-3 border-t border-white/[0.06]">
             <div className="text-xs text-white/40 leading-relaxed">{contact.notes}</div>
+          </div>
+        )}
+
+        {/* Share button */}
+        {!(contact as unknown as { is_shared?: boolean }).is_shared && (
+          <div className="mt-3 pt-3 border-t border-white/[0.06]">
+            <ShareContactBtn contactId={contactId} onDone={() => queryClient.invalidateQueries({ queryKey: ["my-contact", contactId] })} />
           </div>
         )}
       </div>
@@ -219,6 +232,49 @@ export default function ContactDetailPage() {
           </div>
         )}
       </div>
+    </div>
+  );
+}
+
+function ShareContactBtn({ contactId, onDone }: { contactId: string; onDone: () => void }) {
+  const [open, setOpen] = useState(false);
+  const [sharing, setSharing] = useState(false);
+
+  const { data: circlesData } = useQuery({
+    queryKey: ["circles"],
+    queryFn: () => api.get<Array<{ id: string; name: string }>>("/circles"),
+    enabled: open,
+  });
+  const circles = circlesData?.data ?? [];
+
+  const handleShare = async (circleId?: string) => {
+    setSharing(true);
+    await api.post(`/my/contacts/${contactId}/share`, { circleId });
+    setSharing(false);
+    setOpen(false);
+    onDone();
+  };
+
+  if (!open) {
+    return (
+      <button onClick={() => setOpen(true)} className="text-[11px] text-[#5AC8FA]/70 hover:text-[#5AC8FA] transition-colors">
+        📤 分享到圈子
+      </button>
+    );
+  }
+
+  return (
+    <div className="flex flex-wrap gap-1.5 items-center">
+      <span className="text-[10px] text-white/30 mr-1">分享到：</span>
+      <button onClick={() => handleShare()} disabled={sharing} className="text-[10px] px-2 py-1 rounded-lg bg-[#5AC8FA]/10 text-[#5AC8FA] hover:bg-[#5AC8FA]/20 transition-colors">
+        {sharing ? "..." : "所有圈子"}
+      </button>
+      {circles.map((c) => (
+        <button key={c.id} onClick={() => handleShare(c.id)} disabled={sharing} className="text-[10px] px-2 py-1 rounded-lg bg-white/5 text-white/50 hover:bg-white/10 transition-colors">
+          {c.name}
+        </button>
+      ))}
+      <button onClick={() => setOpen(false)} className="text-[10px] text-white/25 ml-1">取消</button>
     </div>
   );
 }

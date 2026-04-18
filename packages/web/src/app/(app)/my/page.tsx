@@ -280,7 +280,7 @@ function ProjectsTab() {
         projects.map((p) => {
           const color = STAGE_COLORS[p.stage] ?? "#FF9F0A";
           return (
-            <div key={p.id} className="glass-card p-4" style={{ marginBottom: 0 }}>
+            <Link key={p.id} href={`/my/projects/${p.id}`} className="glass-card p-4 block group" style={{ marginBottom: 0 }}>
               <div className="flex items-start justify-between gap-3">
                 <div className="min-w-0 flex-1">
                   <div className="flex items-center gap-2 flex-wrap">
@@ -311,11 +311,11 @@ function ProjectsTab() {
               </div>
               {/* Share button */}
               {!p.is_shared && (
-                <div className="mt-2">
+                <div className="mt-2" onClick={(e) => e.preventDefault()}>
                   <ShareToCircleBtn type="projects" id={p.id} onDone={() => queryClient.invalidateQueries({ queryKey: ["my-projects"] })} />
                 </div>
               )}
-            </div>
+            </Link>
           );
         })
       )}
