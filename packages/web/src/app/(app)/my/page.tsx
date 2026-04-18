@@ -210,12 +210,19 @@ function ContactsTab() {
               <div className="flex-1 min-w-0">
                 <div className="flex items-center gap-2 flex-wrap">
                   <span className="text-sm text-white/90 font-medium group-hover:text-white transition-colors">{c.name}</span>
-                  {c.is_shared
-                    ? <span className="text-[9px] text-[#30D158] bg-[#30D158]/10 px-1.5 py-0.5 rounded">
-                        已分享到：{((c as unknown as { shared_circle_names?: string[] }).shared_circle_names ?? []).join(", ") || "圈子"}
-                      </span>
-                    : <span className="text-[9px] text-white/25 bg-white/5 px-1.5 py-0.5 rounded">仅自己可见</span>
-                  }
+                  {(() => {
+                    const names = (c as unknown as { shared_circle_names?: string[] }).shared_circle_names ?? [];
+                    return names.length > 0 ? (
+                      <>
+                        <span className="text-[9px] text-[#30D158]/60">已分享到:</span>
+                        {names.map((n) => (
+                          <span key={n} className="text-[9px] text-[#30D158] bg-[#30D158]/10 px-1.5 py-0.5 rounded">{n}</span>
+                        ))}
+                      </>
+                    ) : (
+                      <span className="text-[9px] text-white/25 bg-white/5 px-1.5 py-0.5 rounded">仅自己可见</span>
+                    );
+                  })()}
                   {c.actionSoon && <span className="text-[9px] text-[#FF9F0A] bg-[#FF9F0A]/10 px-1.5 py-0.5 rounded">待行动</span>}
                   {c.needsReminder && <span className="text-[9px] text-[#FF375F] bg-[#FF375F]/10 px-1.5 py-0.5 rounded">该联络</span>}
                 </div>
@@ -332,12 +339,19 @@ function ProjectsTab() {
                 <div className="min-w-0 flex-1">
                   <div className="flex items-center gap-2 flex-wrap">
                     <h3 className="text-sm text-white/90 font-medium">{p.name}</h3>
-                    {p.is_shared
-                      ? <span className="text-[9px] text-[#30D158] bg-[#30D158]/10 px-1.5 py-0.5 rounded">
-                          已分享到：{((p as unknown as { shared_circle_names?: string[] }).shared_circle_names ?? []).join(", ") || "圈子"}
-                        </span>
-                      : <span className="text-[9px] text-white/25 bg-white/5 px-1.5 py-0.5 rounded">仅自己可见</span>
-                    }
+                    {(() => {
+                      const names = (p as unknown as { shared_circle_names?: string[] }).shared_circle_names ?? [];
+                      return names.length > 0 ? (
+                        <>
+                          <span className="text-[9px] text-[#30D158]/60">已分享到:</span>
+                          {names.map((n) => (
+                            <span key={n} className="text-[9px] text-[#30D158] bg-[#30D158]/10 px-1.5 py-0.5 rounded">{n}</span>
+                          ))}
+                        </>
+                      ) : (
+                        <span className="text-[9px] text-white/25 bg-white/5 px-1.5 py-0.5 rounded">仅自己可见</span>
+                      );
+                    })()}
                   </div>
                   <div className="text-[11px] text-white/35 mt-0.5">
                     {[p.client, p.region, p.budget].filter(Boolean).join(" · ")}
@@ -380,13 +394,20 @@ function ShareManager({ type, id, isShared, sharedNames = [], onDone }: { type: 
   });
   const circles = circlesData?.data ?? [];
 
-  // Toggle: share or unshare a specific circle
-  const toggleCircle = async (circleName: string, circleId?: string) => {
+  // Add one circle
+  const addCircle = async (circleName: string, circleId?: string) => {
     await api.post(`/my/${type}/${id}/share`, { circleId });
     onDone();
   };
 
-  const handleUnshare = async () => {
+  // Remove one specific circle
+  const removeCircle = async (circleName: string) => {
+    await api.post(`/my/${type}/${id}/unshare`, { circleName });
+    onDone();
+  };
+
+  // Remove all
+  const removeAll = async () => {
     await api.post(`/my/${type}/${id}/unshare`, {});
     onDone();
   };
@@ -399,8 +420,8 @@ function ShareManager({ type, id, isShared, sharedNames = [], onDone }: { type: 
             {isShared ? "🔄 管理分享" : "📤 分享到圈子"}
           </button>
           {isShared && (
-            <button type="button" onClick={handleUnshare} className="text-[11px] text-white/25 hover:text-[#FF375F]/70 transition-colors">
-              🚫 不分享
+            <button type="button" onClick={removeAll} className="text-[11px] text-white/25 hover:text-[#FF375F]/70 transition-colors">
+              🚫 全部取消
             </button>
           )}
         </div>
@@ -411,7 +432,7 @@ function ShareManager({ type, id, isShared, sharedNames = [], onDone }: { type: 
             {circles.map((c) => {
               const isSelected = sharedNames.includes(c.name);
               return (
-                <button type="button" key={c.id} onClick={() => isSelected ? handleUnshare() : toggleCircle(c.name, c.id)}
+                <button type="button" key={c.id} onClick={() => isSelected ? removeCircle(c.name) : addCircle(c.name, c.id)}
                   className={`text-[10px] px-2.5 py-1.5 rounded-lg transition-colors cursor-pointer ${
                     isSelected
                       ? "bg-[#30D158]/20 text-[#30D158] border border-[#30D158]/30"

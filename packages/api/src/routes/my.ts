@@ -142,24 +142,46 @@ myRoutes.post("/contacts/:id/share", async (c) => {
   return c.json({ success: true, data: { sharedId, circleName, sharedCircleNames: existingNames } });
 });
 
-// Unshare contact
+// Unshare contact — remove one circle name, or all if no circleName given
 myRoutes.post("/contacts/:id/unshare", async (c) => {
+  const body = await c.req.json().catch(() => ({})) as { circleName?: string };
   const userId = c.get("userId");
   const { getDb } = await import("@meridian/db");
   const { sql } = await import("drizzle-orm");
   const db = getDb();
-  await db.execute(sql`UPDATE my_contacts SET is_shared = false, shared_circle_names = '[]'::jsonb, updated_at = NOW() WHERE id = ${c.req.param("id")} AND user_id = ${userId}`);
-  return c.json({ success: true });
+
+  if (body.circleName) {
+    // Remove one specific circle
+    const [mc] = await db.execute(sql`SELECT shared_circle_names FROM my_contacts WHERE id = ${c.req.param("id")} AND user_id = ${userId}`);
+    const names = ((mc?.shared_circle_names as string[]) ?? []).filter(n => n !== body.circleName);
+    const isShared = names.length > 0;
+    await db.execute(sql.raw(`UPDATE my_contacts SET is_shared = ${isShared}, shared_circle_names = '${JSON.stringify(names)}'::jsonb, updated_at = NOW() WHERE id = '${c.req.param("id")}' AND user_id = '${userId}'`));
+    return c.json({ success: true, data: { sharedCircleNames: names } });
+  } else {
+    // Remove all
+    await db.execute(sql.raw(`UPDATE my_contacts SET is_shared = false, shared_circle_names = '[]'::jsonb, updated_at = NOW() WHERE id = '${c.req.param("id")}' AND user_id = '${userId}'`));
+    return c.json({ success: true, data: { sharedCircleNames: [] } });
+  }
 });
 
-// Unshare project
+// Unshare project — same logic
 myRoutes.post("/projects/:id/unshare", async (c) => {
+  const body = await c.req.json().catch(() => ({})) as { circleName?: string };
   const userId = c.get("userId");
   const { getDb } = await import("@meridian/db");
   const { sql } = await import("drizzle-orm");
   const db = getDb();
-  await db.execute(sql`UPDATE my_projects SET is_shared = false, shared_circle_names = '[]'::jsonb, updated_at = NOW() WHERE id = ${c.req.param("id")} AND user_id = ${userId}`);
-  return c.json({ success: true });
+
+  if (body.circleName) {
+    const [mp] = await db.execute(sql`SELECT shared_circle_names FROM my_projects WHERE id = ${c.req.param("id")} AND user_id = ${userId}`);
+    const names = ((mp?.shared_circle_names as string[]) ?? []).filter(n => n !== body.circleName);
+    const isShared = names.length > 0;
+    await db.execute(sql.raw(`UPDATE my_projects SET is_shared = ${isShared}, shared_circle_names = '${JSON.stringify(names)}'::jsonb, updated_at = NOW() WHERE id = '${c.req.param("id")}' AND user_id = '${userId}'`));
+    return c.json({ success: true, data: { sharedCircleNames: names } });
+  } else {
+    await db.execute(sql.raw(`UPDATE my_projects SET is_shared = false, shared_circle_names = '[]'::jsonb, updated_at = NOW() WHERE id = '${c.req.param("id")}' AND user_id = '${userId}'`));
+    return c.json({ success: true, data: { sharedCircleNames: [] } });
+  }
 });
 
 // ── Contact Logs ──

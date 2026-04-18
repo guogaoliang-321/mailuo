@@ -67,6 +67,28 @@ packages/
 **Schema**: `packages/db/src/pg/schema.ts`
 **查询层**: `packages/db/src/pg/queries.ts`
 
+## 常用 Skills
+
+根据项目的 Monorepo + Full Stack 特点，推荐以下 skills：
+
+| Skill | 命令 | 适用场景 |
+|-------|------|---------|
+| **自动执行** | `/autopilot "task"` | 单一清晰的功能（UI 组件、单个路由、简单业务逻辑） |
+| **多代理并行** | `/team 2:executor "task"` | 跨包开发（同时修改 packages/api 和 packages/web） |
+| **代码审查** | `/code-review` | 任何代码修改完成后立即使用 |
+| **测试驱动开发** | `/tdd-guide` | API 端点、业务逻辑、复杂查询开发 |
+| **数据库优化** | `/database-reviewer` | PostgreSQL 查询优化、schema 设计、Drizzle ORM 调整 |
+
+**快速开始示例**：
+- 简单 UI 修改：`/autopilot "add login button to navbar"`
+- API + UI 同时开发：`/team 2:executor "implement project detail page with API"`
+- 业务逻辑：`/tdd-guide` 或 `/database-reviewer`（数据库相关）
+
+完整 skills 列表参见：
+- `~/.claude/rules/skills/ecc-skills.md` — ECC 代理和命令
+- `~/.claude/rules/skills/omc-skills.md` — OMC 编排命令
+- `~/.claude/rules/skills/mcp-servers.md` — MCP 服务（GitHub、PostgreSQL）
+
 ## 部署架构（Zeabur）
 
 **线上地址**: https://mailuo.zeabur.app
