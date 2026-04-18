@@ -370,45 +370,51 @@ function ProjectsTab() {
 function ShareManager({ type, id, isShared, onDone }: { type: "projects" | "contacts"; id: string; isShared: boolean; onDone: () => void }) {
   const [open, setOpen] = useState(false);
   const [sharing, setSharing] = useState(false);
+  const [done, setDone] = useState("");
 
   const { data: circlesData } = useQuery({
     queryKey: ["circles"],
     queryFn: () => api.get<Array<{ id: string; name: string }>>("/circles"),
-    enabled: open,
   });
   const circles = circlesData?.data ?? [];
 
-  const handleShare = async (e: React.MouseEvent, circleId?: string) => {
-    e.preventDefault();
-    e.stopPropagation();
+  const handleShare = async (circleName: string, circleId?: string) => {
     setSharing(true);
-    await api.post(`/my/${type}/${id}/share`, { circleId });
+    const res = await api.post(`/my/${type}/${id}/share`, { circleId });
     setSharing(false);
-    onDone();
+    if (res.success) {
+      setDone(`✓ 已分享到${circleName}`);
+      setTimeout(() => setDone(""), 3000);
+      onDone();
+    }
   };
 
-  if (!open) {
-    return (
-      <button onClick={() => setOpen(true)} className="text-[11px] transition-colors" style={{ color: isShared ? "rgba(48,209,88,0.7)" : "rgba(90,200,250,0.7)" }}>
-        {isShared ? "🔄 管理分享" : "📤 分享到圈子"}
-      </button>
-    );
-  }
-
   return (
-    <div className="p-2.5 rounded-xl bg-white/[0.03] border border-white/[0.06]">
-      <div className="text-[10px] text-white/30 mb-2">{isShared ? "重新分享到：" : "选择分享的圈子："}</div>
-      <div className="flex flex-wrap gap-1.5">
-        <button onClick={(e) => handleShare(e)} disabled={sharing} className="text-[10px] px-2.5 py-1 rounded-lg bg-[#5AC8FA]/10 text-[#5AC8FA] hover:bg-[#5AC8FA]/20 transition-colors">
-          {sharing ? "..." : "📢 所有圈子"}
+    <div onClick={(e) => { e.preventDefault(); e.stopPropagation(); }}>
+      {done && <div className="text-[10px] text-[#30D158] mb-1">{done}</div>}
+
+      {!open ? (
+        <button type="button" onClick={() => setOpen(true)} className="text-[11px] transition-colors" style={{ color: isShared ? "rgba(48,209,88,0.7)" : "rgba(90,200,250,0.7)" }}>
+          {isShared ? "🔄 管理分享" : "📤 分享到圈子"}
         </button>
-        {circles.map((c) => (
-          <button key={c.id} onClick={(e) => handleShare(e, c.id)} disabled={sharing} className="text-[10px] px-2.5 py-1 rounded-lg bg-white/5 text-white/50 hover:bg-white/10 transition-colors">
-            {c.name}
-          </button>
-        ))}
-      </div>
-      <button onClick={() => setOpen(false)} className="text-[10px] text-white/25 mt-2 block">收起</button>
+      ) : (
+        <div className="p-2.5 rounded-xl bg-white/[0.03] border border-white/[0.06]">
+          <div className="text-[10px] text-white/30 mb-2">点击选择圈子：</div>
+          <div className="flex flex-wrap gap-1.5">
+            <button type="button" onClick={() => handleShare("所有圈子")} disabled={sharing}
+              className="text-[10px] px-2.5 py-1.5 rounded-lg bg-[#5AC8FA]/15 text-[#5AC8FA] hover:bg-[#5AC8FA]/25 transition-colors cursor-pointer">
+              {sharing ? "分享中..." : "📢 所有圈子"}
+            </button>
+            {circles.map((c) => (
+              <button type="button" key={c.id} onClick={() => handleShare(c.name, c.id)} disabled={sharing}
+                className="text-[10px] px-2.5 py-1.5 rounded-lg bg-white/[0.06] text-white/60 hover:bg-white/[0.12] hover:text-white/80 transition-colors cursor-pointer">
+                {c.name}
+              </button>
+            ))}
+          </div>
+          <button type="button" onClick={() => setOpen(false)} className="text-[10px] text-white/25 mt-2 block cursor-pointer">收起 ▲</button>
+        </div>
+      )}
     </div>
   );
 }
