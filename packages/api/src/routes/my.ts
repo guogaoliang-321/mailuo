@@ -42,20 +42,6 @@ myRoutes.post("/projects/:id/share", async (c) => {
   const [mp] = await db.execute(sql`SELECT * FROM my_projects WHERE id = ${c.req.param("id")} AND user_id = ${userId}`);
   if (!mp) return c.json({ success: false, error: "项目不存在" }, 404);
 
-  // Create in shared pool
-  const sharedId = crypto.randomUUID();
-  await neo4jQueries.createProjectNode({
-    id: sharedId,
-    name: mp.name as string,
-    region: (mp.region as string) ?? "",
-    scale: (mp.budget as string) ?? "",
-    stage: (mp.stage as string) ?? "prospecting",
-    decisionMakerClue: "",
-    notes: (mp.notes as string) ?? "",
-    contributorId: userId,
-    circleId: body.circleId ?? null,
-  });
-
   // Get circle name
   let circleName = "所有圈子";
   if (body.circleId) {
@@ -63,13 +49,37 @@ myRoutes.post("/projects/:id/share", async (c) => {
     circleName = (circle?.name as string) ?? "圈子";
   }
 
-  // Append circle name and mark as shared
+  // Check if already shared to this circle (prevent duplicates)
   const existingNames = (mp.shared_circle_names as string[]) ?? [];
-  if (!existingNames.includes(circleName)) existingNames.push(circleName);
+  if (existingNames.includes(circleName)) {
+    return c.json({ success: true, data: { circleName, sharedCircleNames: existingNames } });
+  }
 
+  // Check if already exists in public pool
+  const circleIdVal = body.circleId ?? null;
+  const [existing] = circleIdVal
+    ? await db.execute(sql`SELECT id FROM projects WHERE contributor_id = ${userId} AND name = ${mp.name} AND circle_id = ${circleIdVal} LIMIT 1`)
+    : await db.execute(sql`SELECT id FROM projects WHERE contributor_id = ${userId} AND name = ${mp.name} AND circle_id IS NULL LIMIT 1`);
+
+  if (!existing) {
+    const sharedId = crypto.randomUUID();
+    await neo4jQueries.createProjectNode({
+      id: sharedId,
+      name: mp.name as string,
+      region: (mp.region as string) ?? "",
+      scale: (mp.budget as string) ?? "",
+      stage: (mp.stage as string) ?? "prospecting",
+      decisionMakerClue: "",
+      notes: (mp.notes as string) ?? "",
+      contributorId: userId,
+      circleId: circleIdVal,
+    });
+  }
+
+  existingNames.push(circleName);
   await db.execute(sql`UPDATE my_projects SET is_shared = true, shared_circle_names = ${JSON.stringify(existingNames)}::jsonb, updated_at = NOW() WHERE id = ${c.req.param("id")}`);
 
-  return c.json({ success: true, data: { sharedId, circleName, sharedCircleNames: existingNames } });
+  return c.json({ success: true, data: { circleName, sharedCircleNames: existingNames } });
 });
 
 // ── My Contacts ──
@@ -119,27 +129,39 @@ myRoutes.post("/contacts/:id/share", async (c) => {
     circleName = (circle?.name as string) ?? "圈子";
   }
 
-  const sharedId = crypto.randomUUID();
-  await neo4jQueries.createRelationshipNode({
-    id: sharedId,
-    ownerId: userId,
-    alias: body.alias ?? (mc.name as string),
-    domainTags: (mc.tags as string[]) ?? [],
-    levelTags: [],
-    closeness: (mc.closeness as number) ?? 3,
-    visibility: body.visibility ?? "circle",
-    designatedViewerIds: [],
-    circleId: body.circleId ?? null,
-    notes: "",
-  });
-
-  // Append circle name to shared list
+  // Check if already shared to this circle (prevent duplicates)
   const existingNames = (mc.shared_circle_names as string[]) ?? [];
-  if (!existingNames.includes(circleName)) existingNames.push(circleName);
+  if (existingNames.includes(circleName)) {
+    return c.json({ success: true, data: { circleName, sharedCircleNames: existingNames } });
+  }
 
-  await db.execute(sql`UPDATE my_contacts SET is_shared = true, shared_circle_names = ${JSON.stringify(existingNames)}::jsonb, shared_alias = ${body.alias ?? mc.name}, updated_at = NOW() WHERE id = ${c.req.param("id")}`);
+  // Check if already exists in public pool
+  const alias = body.alias ?? (mc.name as string);
+  const circleIdVal = body.circleId ?? null;
+  const [existing] = circleIdVal
+    ? await db.execute(sql`SELECT id FROM relationships WHERE owner_id = ${userId} AND alias = ${alias} AND circle_id = ${circleIdVal} LIMIT 1`)
+    : await db.execute(sql`SELECT id FROM relationships WHERE owner_id = ${userId} AND alias = ${alias} AND circle_id IS NULL LIMIT 1`);
 
-  return c.json({ success: true, data: { sharedId, circleName, sharedCircleNames: existingNames } });
+  if (!existing) {
+    const sharedId = crypto.randomUUID();
+    await neo4jQueries.createRelationshipNode({
+      id: sharedId,
+      ownerId: userId,
+      alias,
+      domainTags: (mc.tags as string[]) ?? [],
+      levelTags: [],
+      closeness: (mc.closeness as number) ?? 3,
+      visibility: body.visibility ?? "circle",
+      designatedViewerIds: [],
+      circleId: circleIdVal,
+      notes: "",
+    });
+  }
+
+  existingNames.push(circleName);
+  await db.execute(sql`UPDATE my_contacts SET is_shared = true, shared_circle_names = ${JSON.stringify(existingNames)}::jsonb, shared_alias = ${alias}, updated_at = NOW() WHERE id = ${c.req.param("id")}`);
+
+  return c.json({ success: true, data: { circleName, sharedCircleNames: existingNames } });
 });
 
 // Unshare contact — remove one circle name, or all if no circleName given
