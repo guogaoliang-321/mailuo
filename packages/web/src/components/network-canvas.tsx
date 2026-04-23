@@ -7,6 +7,7 @@ interface GraphNode {
   label: string;
   ring: number;
   type: "user" | "circle";
+  avatar?: string;
 }
 
 interface GraphLink {
@@ -65,6 +66,7 @@ export function NetworkCanvas({ nodes, links, width, height, onNodeTap, activeNo
   const particlesRef = useRef<Array<{ sx: number; sy: number; ex: number; ey: number; p: number; spd: number }>>([]);
   const dragRef = useRef<{ node: SimNode; startX: number; startY: number; moved: boolean } | null>(null);
   const circleColorMap = useRef(new Map<string, { fill: string; glow: string }>());
+  const imgCache = useRef(new Map<string, HTMLImageElement>());
 
   const dpr = typeof window !== "undefined" ? (window.devicePixelRatio || 1) : 1;
 
@@ -79,6 +81,17 @@ export function NetworkCanvas({ nodes, links, width, height, onNodeTap, activeNo
       }
     }
     circleColorMap.current = map;
+  }, [nodes]);
+
+  // Pre-load avatar images
+  useEffect(() => {
+    for (const n of nodes) {
+      if (n.type === "user" && n.avatar && !imgCache.current.has(n.id)) {
+        const img = new Image();
+        img.src = n.avatar;
+        imgCache.current.set(n.id, img);
+      }
+    }
   }, [nodes]);
 
   // Get color for a member node based on which circle(s) it belongs to
@@ -311,28 +324,44 @@ export function NetworkCanvas({ nodes, links, width, height, onNodeTap, activeNo
           ctx.fillStyle = spec;
           ctx.fill();
         } else {
-          // Circle
-          const base = ctx.createRadialGradient(n.x - r * 0.25, n.y - r * 0.3, 0, n.x, n.y, r);
-          base.addColorStop(0, `${color}55`);
-          base.addColorStop(0.7, `${color}25`);
-          base.addColorStop(1, `${color}15`);
-          ctx.beginPath();
-          ctx.arc(n.x, n.y, r, 0, Math.PI * 2);
-          ctx.fillStyle = base;
-          ctx.fill();
-          ctx.beginPath();
-          ctx.arc(n.x, n.y, r, 0, Math.PI * 2);
-          ctx.strokeStyle = isAct ? `${color}AA` : "rgba(255,255,255,0.18)";
-          ctx.lineWidth = isAct ? 1.5 : 0.8;
-          ctx.stroke();
-          // Specular highlight
-          const spec = ctx.createRadialGradient(n.x - r * 0.3, n.y - r * 0.3, 0, n.x - r * 0.2, n.y - r * 0.2, r * 0.7);
-          spec.addColorStop(0, "rgba(255,255,255,0.25)");
-          spec.addColorStop(1, "transparent");
-          ctx.fillStyle = spec;
-          ctx.beginPath();
-          ctx.arc(n.x, n.y, r, 0, Math.PI * 2);
-          ctx.fill();
+          const img = imgCache.current.get(n.id);
+          if (img?.complete && img.naturalWidth > 0) {
+            // Real avatar — clip to circle
+            ctx.save();
+            ctx.beginPath();
+            ctx.arc(n.x, n.y, r, 0, Math.PI * 2);
+            ctx.clip();
+            ctx.drawImage(img, n.x - r, n.y - r, r * 2, r * 2);
+            ctx.restore();
+            // Border ring
+            ctx.beginPath();
+            ctx.arc(n.x, n.y, r, 0, Math.PI * 2);
+            ctx.strokeStyle = isSelf ? `${C.gold}CC` : isAct ? `${color}AA` : "rgba(255,255,255,0.35)";
+            ctx.lineWidth = isSelf ? 2 : 1.5;
+            ctx.stroke();
+          } else {
+            // Fallback: gradient circle with initial
+            const base = ctx.createRadialGradient(n.x - r * 0.25, n.y - r * 0.3, 0, n.x, n.y, r);
+            base.addColorStop(0, `${color}55`);
+            base.addColorStop(0.7, `${color}25`);
+            base.addColorStop(1, `${color}15`);
+            ctx.beginPath();
+            ctx.arc(n.x, n.y, r, 0, Math.PI * 2);
+            ctx.fillStyle = base;
+            ctx.fill();
+            ctx.beginPath();
+            ctx.arc(n.x, n.y, r, 0, Math.PI * 2);
+            ctx.strokeStyle = isAct ? `${color}AA` : "rgba(255,255,255,0.18)";
+            ctx.lineWidth = isAct ? 1.5 : 0.8;
+            ctx.stroke();
+            const spec = ctx.createRadialGradient(n.x - r * 0.3, n.y - r * 0.3, 0, n.x - r * 0.2, n.y - r * 0.2, r * 0.7);
+            spec.addColorStop(0, "rgba(255,255,255,0.25)");
+            spec.addColorStop(1, "transparent");
+            ctx.fillStyle = spec;
+            ctx.beginPath();
+            ctx.arc(n.x, n.y, r, 0, Math.PI * 2);
+            ctx.fill();
+          }
         }
 
         // Label
@@ -342,11 +371,12 @@ export function NetworkCanvas({ nodes, links, width, height, onNodeTap, activeNo
         ctx.textAlign = "center";
         ctx.textBaseline = "middle";
 
-        if (isCircle) {
-          // Circle names can be long, truncate and show below
-          const maxW = r * 2.2;
+        const hasImg = !isCircle && (() => { const im = imgCache.current.get(n.id); return im?.complete && im.naturalWidth > 0; })();
+        if (isCircle || hasImg) {
+          // Show label below node
+          const maxW = r * 2.5;
           let label = n.label;
-          ctx.font = `600 ${fontSize}px ${FONT}`;
+          ctx.font = `600 ${isCircle ? fontSize : Math.max(fontSize - 1, 9)}px ${FONT}`;
           if (ctx.measureText(label).width > maxW) {
             while (label.length > 2 && ctx.measureText(label + "…").width > maxW) label = label.slice(0, -1);
             label += "…";
@@ -354,6 +384,7 @@ export function NetworkCanvas({ nodes, links, width, height, onNodeTap, activeNo
           ctx.fillStyle = C.textDim;
           ctx.fillText(label, n.x, n.y + r + 12);
         } else {
+          ctx.fillStyle = C.text;
           ctx.fillText(n.label, n.x, n.y);
         }
       }

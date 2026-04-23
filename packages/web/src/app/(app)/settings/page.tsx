@@ -4,11 +4,31 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { useAuth } from "@/lib/auth";
 import { api } from "@/lib/api";
-import { User, Mail, Shield, Users, Pencil, Lock, Check, X, LogOut, KeyRound } from "lucide-react";
+import { User, Mail, Shield, Users, Pencil, Lock, Check, X, LogOut, KeyRound, Camera } from "lucide-react";
 
 export default function SettingsPage() {
-  const { user, logout, updateProfile } = useAuth();
+  const { user, logout, updateProfile, updateAvatar } = useAuth();
   const router = useRouter();
+
+  // Avatar upload state
+  const [avatarUploading, setAvatarUploading] = useState(false);
+  const [avatarError, setAvatarError] = useState("");
+
+  const handleAvatarChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    if (file.size > 1_500_000) { setAvatarError("图片不超过 1.5MB"); return; }
+    setAvatarUploading(true);
+    setAvatarError("");
+    const reader = new FileReader();
+    reader.onload = async (ev) => {
+      const dataUrl = ev.target?.result as string;
+      const err = await updateAvatar(dataUrl);
+      setAvatarUploading(false);
+      if (err) setAvatarError(err);
+    };
+    reader.readAsDataURL(file);
+  };
 
   // Edit display name state
   const [editingName, setEditingName] = useState(false);
@@ -79,10 +99,21 @@ export default function SettingsPage() {
       <div className="glass-card p-6 space-y-5">
         <div className="flex items-center justify-between pb-4 border-b border-white/[0.06]">
           <div className="flex items-center gap-4">
-            <div className="w-14 h-14 rounded-2xl bg-gradient-to-br from-[#D4A853]/60 to-[#D4A853]/30 flex items-center justify-center text-white text-xl font-bold flex-shrink-0">
-              {user?.displayName?.charAt(0) ?? "?"}
-            </div>
+            <label className="relative cursor-pointer group flex-shrink-0">
+              <input type="file" accept="image/*" className="hidden" onChange={handleAvatarChange} />
+              {user?.avatar ? (
+                <img src={user.avatar} alt="头像" className="w-14 h-14 rounded-2xl object-cover" />
+              ) : (
+                <div className="w-14 h-14 rounded-2xl bg-gradient-to-br from-[#D4A853]/60 to-[#D4A853]/30 flex items-center justify-center text-white text-xl font-bold">
+                  {user?.displayName?.charAt(0) ?? "?"}
+                </div>
+              )}
+              <div className="absolute inset-0 rounded-2xl bg-black/50 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
+                {avatarUploading ? <span className="text-[10px] text-white">上传中…</span> : <Camera className="w-5 h-5 text-white" />}
+              </div>
+            </label>
             <div>
+              {avatarError && <p className="text-[10px] text-red-400 mb-1">{avatarError}</p>}
               {editingName ? (
                 <div className="flex items-center gap-2">
                   <input

@@ -17,6 +17,7 @@ export const users = pgTable("users", {
   displayName: varchar("display_name", { length: 100 }).notNull(),
   passwordHash: varchar("password_hash", { length: 255 }).notNull(),
   role: varchar("role", { length: 20 }).default("member").notNull(),
+  avatar: text("avatar"),
   domainTags: jsonb("domain_tags").$type<string[]>().default([]),
   invitedBy: uuid("invited_by"),
   createdAt: timestamp("created_at").defaultNow().notNull(),

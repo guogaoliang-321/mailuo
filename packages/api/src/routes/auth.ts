@@ -155,6 +155,21 @@ authRoutes.post("/logout", async (c) => {
   return c.json({ success: true });
 });
 
+authRoutes.patch("/avatar", requireAuth, async (c) => {
+  const body = await c.req.json();
+  const parsed = z.object({
+    avatar: z.string().max(2_000_000, "图片太大，请压缩后重试"),
+  }).safeParse(body);
+  if (!parsed.success) {
+    return c.json({ success: false, error: parsed.error.errors[0].message }, 400);
+  }
+  const db = getDb();
+  await db.update(pgSchema.users)
+    .set({ avatar: parsed.data.avatar })
+    .where(eq(pgSchema.users.id, c.get("userId")));
+  return c.json({ success: true });
+});
+
 authRoutes.patch("/profile", requireAuth, async (c) => {
   const body = await c.req.json();
   const parsed = z.object({

@@ -390,7 +390,7 @@ export async function findRelayPaths(fromUserId: string, toUserId: string) {
 export async function getNetworkGraph(userId: string) {
   const db = getDb();
   // Structure: me (ring 0) → circles (ring 1) → members (ring 2)
-  const me = await db.execute(sql`SELECT id, display_name AS "displayName" FROM users WHERE id = ${userId}`);
+  const me = await db.execute(sql`SELECT id, display_name AS "displayName", avatar FROM users WHERE id = ${userId}`);
   if (me.length === 0) return { nodes: [], links: [] };
 
   const circlesRows = await db.execute(sql`
@@ -399,12 +399,12 @@ export async function getNetworkGraph(userId: string) {
     WHERE cm.user_id = ${userId}
   `);
 
-  type GNode = { id: string; label: string; ring: number; type: "user" | "circle" };
+  type GNode = { id: string; label: string; ring: number; type: "user" | "circle"; avatar?: string };
   const nodes: GNode[] = [];
   const links: Array<{ source: string; target: string }> = [];
   const seen = new Set<string>();
 
-  nodes.push({ id: me[0].id as string, label: me[0].displayName as string, ring: 0, type: "user" });
+  nodes.push({ id: me[0].id as string, label: me[0].displayName as string, ring: 0, type: "user", avatar: (me[0].avatar as string) || undefined });
   seen.add(me[0].id as string);
 
   for (const c of circlesRows) {
@@ -416,14 +416,14 @@ export async function getNetworkGraph(userId: string) {
     links.push({ source: me[0].id as string, target: cid });
 
     const members = await db.execute(sql`
-      SELECT u.id, u.display_name AS "displayName"
+      SELECT u.id, u.display_name AS "displayName", u.avatar
       FROM circle_members cm JOIN users u ON u.id = cm.user_id
       WHERE cm.circle_id = ${cid} AND cm.user_id <> ${userId}
     `);
     for (const m of members) {
       const mid = m.id as string;
       if (!seen.has(mid)) {
-        nodes.push({ id: mid, label: m.displayName as string, ring: 2, type: "user" });
+        nodes.push({ id: mid, label: m.displayName as string, ring: 2, type: "user", avatar: (m.avatar as string) || undefined });
         seen.add(mid);
       }
       links.push({ source: cid, target: mid });

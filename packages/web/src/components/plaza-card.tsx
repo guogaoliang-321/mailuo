@@ -249,7 +249,7 @@ function CommentItem({
 
 // ── Main PlazaCard ─────────────────────────────────────────────────────────
 
-const SHOW_LIMIT = 5;
+const SHOW_LIMIT = 3;
 
 export function PlazaCard({ message: m }: { message: PlazaMsg }) {
   const [commentsOpen, setCommentsOpen] = useState(false);
@@ -312,14 +312,14 @@ export function PlazaCard({ message: m }: { message: PlazaMsg }) {
         </span>
       )}
 
-      {/* Content — larger */}
-      <p className="text-[15px] text-white/85 leading-[1.7] mb-4 break-words">{m.content}</p>
-
-      {/* Meta: author + time, right-aligned */}
-      <div className="flex items-center justify-end gap-2 pb-4 border-b border-white/[0.06]">
-        <Avatar name={m.userName} size={5} />
-        <span className="text-[12px] text-white/55 font-medium">{m.userName}</span>
-        <span className="text-[10px] text-white/25">{fmtTime(m.created_at)}</span>
+      {/* Content + meta on same row */}
+      <div className="flex items-start gap-3 pb-4 border-b border-white/[0.06]">
+        <p className="flex-1 text-[15px] text-white/85 leading-[1.7] break-words">{m.content}</p>
+        <div className="flex items-center gap-1.5 shrink-0 ml-3 mt-0.5">
+          <Avatar name={m.userName} size={5} />
+          <span className="text-[12px] text-white/55 font-medium whitespace-nowrap">{m.userName}</span>
+          <span className="text-[10px] text-white/25 whitespace-nowrap">{fmtTime(m.created_at)}</span>
+        </div>
       </div>
 
       {/* Comments toggle */}
