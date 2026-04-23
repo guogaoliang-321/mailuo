@@ -7,15 +7,20 @@ export const plazaRoutes = new Hono<AppEnv>();
 
 plazaRoutes.use("*", requireAuth);
 
+const VALID_CATEGORIES = ["all", "design", "construction", "connection", "materials", "general"];
+
 plazaRoutes.get("/", async (c) => {
-  const messages = await neo4jQueries.getPlazaMessages(c.get("userId"));
+  const category = c.req.query("category") ?? "all";
+  const safeCategory = VALID_CATEGORIES.includes(category) ? category : "all";
+  const messages = await neo4jQueries.getPlazaMessages(safeCategory);
   return c.json({ success: true, data: messages });
 });
 
 plazaRoutes.post("/", async (c) => {
-  const body = await c.req.json() as { content: string; type?: string };
+  const body = await c.req.json() as { content: string; category?: string };
   if (!body.content?.trim()) return c.json({ success: false, error: "消息不能为空" }, 400);
-  const msg = await neo4jQueries.addPlazaMessage(c.get("userId"), body.content.trim(), body.type);
+  const category = VALID_CATEGORIES.includes(body.category ?? "") ? body.category! : "general";
+  const msg = await neo4jQueries.addPlazaMessage(c.get("userId"), body.content.trim(), category);
   return c.json({ success: true, data: msg }, 201);
 });
 

@@ -410,6 +410,25 @@ function ClosenessIndicator({ value }: { value: number }) {
   );
 }
 
+const PLAZA_CATEGORIES = [
+  { value: "all",          label: "全部",     icon: "🏛" },
+  { value: "design",       label: "设计类",   icon: "📐" },
+  { value: "construction", label: "施工类",   icon: "🏗" },
+  { value: "connection",   label: "找关系",   icon: "🤝" },
+  { value: "materials",    label: "材料设备", icon: "📦" },
+  { value: "general",      label: "未分类",   icon: "💬" },
+] as const;
+
+type PlazaCategoryValue = typeof PLAZA_CATEGORIES[number]["value"];
+
+const CATEGORY_COLORS: Record<string, string> = {
+  design:       "#5AC8FA",
+  construction: "#FF9F0A",
+  connection:   "#BF5AF2",
+  materials:    "#30D158",
+  general:      "#8E8E93",
+};
+
 interface PlazaMsg {
   id: string;
   userId: string;
@@ -422,11 +441,13 @@ interface PlazaMsg {
 function PlazaSection({ userId }: { userId: string }) {
   const [msg, setMsg] = useState("");
   const [sending, setSending] = useState(false);
+  const [activeCategory, setActiveCategory] = useState<PlazaCategoryValue>("all");
+  const [postCategory, setPostCategory] = useState<PlazaCategoryValue>("general");
   const queryClient = useQueryClient();
 
   const { data } = useQuery({
-    queryKey: ["plaza"],
-    queryFn: () => api.get<PlazaMsg[]>("/plaza"),
+    queryKey: ["plaza", activeCategory],
+    queryFn: () => api.get<PlazaMsg[]>(`/plaza?category=${activeCategory}`),
     refetchInterval: 15000,
   });
 
@@ -436,31 +457,22 @@ function PlazaSection({ userId }: { userId: string }) {
   const handleSend = async () => {
     if (!msg.trim()) return;
     setSending(true);
-    await api.post("/plaza", { content: msg.trim() });
+    await api.post("/plaza", { content: msg.trim(), category: postCategory });
     setSending(false);
     setMsg("");
     queryClient.invalidateQueries({ queryKey: ["plaza"] });
-  };
-
-  const getTypeIcon = (type: string) => {
-    switch (type) {
-      case "project": return "📋";
-      case "relationship": return "🤝";
-      case "request": return "⇌";
-      default: return "💬";
-    }
   };
 
   return (
     <div>
       <div className="flex items-center justify-between mb-3">
         <h2 className="text-sm font-semibold text-white/80">🏛 圈子广场</h2>
-        <span className="text-[10px] text-white/25">所有圈子成员可见</span>
+        <span className="text-[10px] text-white/25">全平台用户可见</span>
       </div>
 
       {/* Post input */}
       <div className="glass-card p-4 mb-3" style={{ marginBottom: 12 }}>
-        <div className="flex gap-2">
+        <div className="flex gap-2 mb-2.5">
           <input
             type="text"
             value={msg}
@@ -473,17 +485,61 @@ function PlazaSection({ userId }: { userId: string }) {
             {sending ? "..." : "发布"}
           </button>
         </div>
+        <div className="flex items-center gap-1.5 flex-wrap">
+          <span className="text-[10px] text-white/25 mr-0.5">分类：</span>
+          {PLAZA_CATEGORIES.filter((c) => c.value !== "all").map((cat) => (
+            <button
+              key={cat.value}
+              onClick={() => setPostCategory(cat.value as PlazaCategoryValue)}
+              className={`text-[10px] px-2.5 py-1 rounded-full transition-all ${
+                postCategory === cat.value
+                  ? "text-white/90 font-medium"
+                  : "text-white/30 hover:text-white/50"
+              }`}
+              style={postCategory === cat.value ? {
+                backgroundColor: `${CATEGORY_COLORS[cat.value]}22`,
+                color: CATEGORY_COLORS[cat.value],
+                border: `1px solid ${CATEGORY_COLORS[cat.value]}40`,
+              } : { border: "1px solid transparent" }}
+            >
+              {cat.icon} {cat.label}
+            </button>
+          ))}
+        </div>
+      </div>
+
+      {/* Filter tabs */}
+      <div className="flex gap-1.5 mb-3 flex-wrap">
+        {PLAZA_CATEGORIES.map((cat) => (
+          <button
+            key={cat.value}
+            onClick={() => setActiveCategory(cat.value as PlazaCategoryValue)}
+            className={`text-[11px] px-3 py-1.5 rounded-full transition-all ${
+              activeCategory === cat.value
+                ? "bg-white/10 text-white/90 font-medium"
+                : "text-white/35 hover:text-white/55 hover:bg-white/5"
+            }`}
+            style={activeCategory === cat.value && cat.value !== "all" ? {
+              backgroundColor: `${CATEGORY_COLORS[cat.value]}18`,
+              color: CATEGORY_COLORS[cat.value],
+            } : {}}
+          >
+            {cat.icon} {cat.label}
+          </button>
+        ))}
       </div>
 
       {/* Messages */}
       <div className="space-y-2">
         {messages.length === 0 ? (
           <div className="glass-card text-center py-8" style={{ marginBottom: 0 }}>
-            <p className="text-white/20 text-sm">广场还没有消息，成为第一个发言的人吧</p>
+            <p className="text-white/20 text-sm">
+              {activeCategory === "all" ? "广场还没有消息，成为第一个发言的人吧" : "该分类暂无消息"}
+            </p>
           </div>
         ) : (
-          messages.slice(0, 10).map((m) => (
-              <PlazaMessageCard key={m.id} message={m} colors={COLORS} />
+          messages.map((m) => (
+            <PlazaMessageCard key={m.id} message={m} colors={COLORS} />
           ))
         )}
       </div>
@@ -528,8 +584,18 @@ function PlazaMessageCard({ message: m, colors }: { message: PlazaMsg; colors: s
         </div>
         <div className="flex-1 min-w-0">
           <div className="flex items-center justify-between">
-            <div className="flex items-center gap-2">
+            <div className="flex items-center gap-2 flex-wrap">
               <span className="text-xs text-white/70 font-medium">{m.userName}</span>
+              {m.type && m.type !== "general" && (() => {
+                const cat = PLAZA_CATEGORIES.find((c) => c.value === m.type);
+                const catColor = CATEGORY_COLORS[m.type] ?? "#8E8E93";
+                return cat ? (
+                  <span className="text-[9px] px-1.5 py-0.5 rounded-full font-medium"
+                    style={{ backgroundColor: `${catColor}20`, color: catColor }}>
+                    {cat.icon} {cat.label}
+                  </span>
+                ) : null;
+              })()}
               <span className="text-[10px] text-white/20">
                 {m.created_at ? new Date(m.created_at).toLocaleDateString("zh-CN", { month: "2-digit", day: "2-digit", hour: "2-digit", minute: "2-digit" }) : ""}
               </span>
