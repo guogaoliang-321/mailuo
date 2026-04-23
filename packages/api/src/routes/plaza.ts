@@ -31,8 +31,8 @@ plazaRoutes.get("/:id/replies", async (c) => {
 });
 
 plazaRoutes.post("/:id/replies", async (c) => {
-  const body = await c.req.json() as { content: string };
+  const body = await c.req.json() as { content: string; parentId?: string };
   if (!body.content?.trim()) return c.json({ success: false, error: "回复不能为空" }, 400);
-  const reply = await neo4jQueries.addPlazaReply(c.req.param("id"), c.get("userId"), body.content.trim());
+  const reply = await neo4jQueries.addPlazaReply(c.req.param("id"), c.get("userId"), body.content.trim(), body.parentId);
   return c.json({ success: true, data: reply }, 201);
 });

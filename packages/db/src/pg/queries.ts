@@ -574,21 +574,26 @@ export async function getPlazaMessages(category = "all", limit = 40) {
   `);
 }
 
-export async function addPlazaReply(messageId: string, userId: string, content: string) {
+export async function addPlazaReply(messageId: string, userId: string, content: string, parentId?: string) {
   const db = getDb();
-  const [row] = await db.insert(s.plazaReplies).values({ messageId, userId, content }).returning();
+  const [row] = await db.insert(s.plazaReplies).values({
+    messageId,
+    userId,
+    content,
+    ...(parentId ? { parentId } : {}),
+  }).returning();
   return row;
 }
 
 export async function getPlazaReplies(messageId: string) {
   const db = getDb();
   return db.execute(sql`
-    SELECT r.*, u.display_name AS "userName", r.user_id AS "userId"
+    SELECT r.id, r.message_id AS "messageId", r.parent_id AS "parentId",
+           r.content, r.created_at, u.display_name AS "userName", r.user_id AS "userId"
     FROM plaza_replies r
     JOIN users u ON u.id = r.user_id
     WHERE r.message_id = ${messageId}
-    ORDER BY r.created_at DESC
-    LIMIT 3
+    ORDER BY r.created_at ASC
   `);
 }
 
