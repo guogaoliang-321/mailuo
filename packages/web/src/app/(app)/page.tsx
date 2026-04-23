@@ -6,6 +6,7 @@ import { api } from "@/lib/api";
 import Link from "next/link";
 import { PROJECT_STAGE_LABELS } from "@meridian/shared";
 import { NetworkCanvas } from "@/components/network-canvas";
+import { UserMenu } from "@/components/user-menu";
 import { useState, useEffect, useRef } from "react";
 import {
   FolderKanban,
@@ -17,7 +18,6 @@ import {
   TrendingUp,
   Sparkles,
   MapPin,
-  Settings,
   Bell,
 } from "lucide-react";
 
@@ -148,9 +148,7 @@ export default function DashboardPage() {
               <span className="absolute -top-1 -right-1 w-4 h-4 bg-[#FF375F] rounded-full text-[9px] text-white flex items-center justify-center font-bold">{pendingRequests}</span>
             )}
           </Link>
-          <Link href="/settings" className="glass w-9 h-9 flex items-center justify-center text-white/40 hover:text-white/70 transition-colors rounded-xl">
-            <Settings className="w-4 h-4" />
-          </Link>
+          <UserMenu />
         </div>
       </div>
 

@@ -1,7 +1,8 @@
 "use client";
 
 import Link from "next/link";
-import { usePathname } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
+import { LogOut } from "lucide-react";
 import { useAuth } from "@/lib/auth";
 
 const navItems = [
@@ -15,7 +16,13 @@ const navItems = [
 
 export function Sidebar() {
   const pathname = usePathname();
-  const { user } = useAuth();
+  const router = useRouter();
+  const { user, logout } = useAuth();
+
+  const handleLogout = async () => {
+    await logout();
+    router.push("/login");
+  };
 
   return (
     <>
@@ -81,8 +88,24 @@ export function Sidebar() {
 
         {user && (
           <div className="p-4 border-t border-white/[0.08]">
-            <div className="text-sm font-medium text-white/70 truncate">{user.displayName}</div>
-            <div className="text-xs text-white/30 truncate">{user.email}</div>
+            <Link href="/settings" className="flex items-center gap-2.5 group mb-2">
+              <div className="w-8 h-8 rounded-xl bg-gradient-to-br from-[#D4A853]/60 to-[#D4A853]/30 flex items-center justify-center text-white text-sm font-bold flex-shrink-0">
+                {user.displayName.charAt(0)}
+              </div>
+              <div className="min-w-0 flex-1">
+                <div className="text-sm font-medium text-white/70 truncate group-hover:text-white/90 transition-colors">
+                  {user.displayName}
+                </div>
+                <div className="text-[10px] text-white/30 truncate">{user.email}</div>
+              </div>
+            </Link>
+            <button
+              onClick={handleLogout}
+              className="w-full flex items-center gap-2 px-2 py-1.5 rounded-lg text-white/25 hover:text-red-400 hover:bg-white/5 transition-colors text-xs"
+            >
+              <LogOut className="w-3.5 h-3.5" />
+              退出登录
+            </button>
           </div>
         )}
       </aside>

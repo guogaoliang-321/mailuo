@@ -2,6 +2,7 @@ import { Hono } from "hono";
 import { setCookie, deleteCookie, getCookie } from "hono/cookie";
 import { hash, verify } from "@node-rs/argon2";
 import { nanoid } from "nanoid";
+import { z } from "zod";
 import { getDb, pgSchema } from "@meridian/db";
 import { loginSchema, registerSchema } from "@meridian/shared";
 import { eq, and, gt, sql } from "drizzle-orm";
@@ -151,6 +152,57 @@ authRoutes.post("/logout", async (c) => {
     await db.delete(pgSchema.sessions).where(eq(pgSchema.sessions.id, sessionId));
   }
   deleteCookie(c, "meridian_session");
+  return c.json({ success: true });
+});
+
+authRoutes.patch("/profile", requireAuth, async (c) => {
+  const body = await c.req.json();
+  const parsed = z.object({
+    displayName: z.string().min(1, "名称不能为空").max(50, "名称不超过50字"),
+  }).safeParse(body);
+  if (!parsed.success) {
+    return c.json({ success: false, error: parsed.error.errors[0].message }, 400);
+  }
+  const db = getDb();
+  const [updated] = await db
+    .update(pgSchema.users)
+    .set({ displayName: parsed.data.displayName })
+    .where(eq(pgSchema.users.id, c.get("userId")))
+    .returning({
+      id: pgSchema.users.id,
+      email: pgSchema.users.email,
+      displayName: pgSchema.users.displayName,
+      role: pgSchema.users.role,
+    });
+  return c.json({ success: true, data: updated });
+});
+
+authRoutes.patch("/password", requireAuth, async (c) => {
+  const body = await c.req.json();
+  const parsed = z.object({
+    currentPassword: z.string().min(1, "请输入当前密码"),
+    newPassword: z.string().min(8, "新密码至少8位").max(100),
+  }).safeParse(body);
+  if (!parsed.success) {
+    return c.json({ success: false, error: parsed.error.errors[0].message }, 400);
+  }
+  const db = getDb();
+  const [user] = await db
+    .select()
+    .from(pgSchema.users)
+    .where(eq(pgSchema.users.id, c.get("userId")))
+    .limit(1);
+  if (!user) return c.json({ success: false, error: "用户不存在" }, 404);
+
+  const valid = await verify(user.passwordHash, parsed.data.currentPassword);
+  if (!valid) return c.json({ success: false, error: "当前密码错误" }, 401);
+
+  const newHash = await hash(parsed.data.newPassword);
+  await db
+    .update(pgSchema.users)
+    .set({ passwordHash: newHash })
+    .where(eq(pgSchema.users.id, c.get("userId")));
+
   return c.json({ success: true });
 });
 

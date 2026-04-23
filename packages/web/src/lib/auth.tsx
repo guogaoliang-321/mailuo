@@ -15,6 +15,7 @@ interface User {
   email: string;
   displayName: string;
   role: string;
+  createdAt?: string;
 }
 
 interface AuthContextValue {
@@ -23,6 +24,7 @@ interface AuthContextValue {
   login: (email: string, password: string) => Promise<string | null>;
   logout: () => Promise<void>;
   refresh: () => Promise<void>;
+  updateProfile: (data: { displayName: string }) => Promise<string | null>;
 }
 
 const AuthContext = createContext<AuthContextValue | null>(null);
@@ -55,8 +57,17 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setUser(null);
   };
 
+  const updateProfile = async (data: { displayName: string }): Promise<string | null> => {
+    const res = await api.patch<User>("/auth/profile", data);
+    if (res.success && res.data) {
+      setUser((prev) => (prev ? { ...prev, ...res.data } : res.data!));
+      return null;
+    }
+    return res.error ?? "更新失败";
+  };
+
   return (
-    <AuthContext.Provider value={{ user, loading, login, logout, refresh }}>
+    <AuthContext.Provider value={{ user, loading, login, logout, refresh, updateProfile }}>
       {children}
     </AuthContext.Provider>
   );
