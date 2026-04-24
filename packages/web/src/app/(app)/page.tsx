@@ -6,10 +6,11 @@ import { api } from "@/lib/api";
 import Link from "next/link";
 import { PROJECT_STAGE_LABELS } from "@meridian/shared";
 import dynamic from "next/dynamic";
-const NetworkCanvas = dynamic(() => import("@/components/network-canvas").then(m => ({ default: m.NetworkCanvas })), { ssr: false });
 import { UserMenu } from "@/components/user-menu";
 import { PlazaCard, type PlazaMsg } from "@/components/plaza-card";
 import { useState, useEffect, useRef } from "react";
+
+const NetworkCanvas = dynamic(() => import("@/components/network-canvas").then(m => ({ default: m.NetworkCanvas })), { ssr: false });
 import {
   FolderKanban,
   CircleDot,
