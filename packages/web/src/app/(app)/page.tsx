@@ -1,11 +1,12 @@
 "use client";
 
 import { useAuth } from "@/lib/auth";
-import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { useQuery } from "@tanstack/react-query";
 import { api } from "@/lib/api";
 import Link from "next/link";
 import { PROJECT_STAGE_LABELS } from "@meridian/shared";
-import { NetworkCanvas } from "@/components/network-canvas";
+import dynamic from "next/dynamic";
+const NetworkCanvas = dynamic(() => import("@/components/network-canvas").then(m => ({ default: m.NetworkCanvas })), { ssr: false });
 import { UserMenu } from "@/components/user-menu";
 import { PlazaCard, type PlazaMsg } from "@/components/plaza-card";
 import { useState, useEffect, useRef } from "react";
@@ -72,37 +73,32 @@ interface NetworkGraphData {
   links: Array<{ source: string; target: string }>;
 }
 
+interface DashboardData {
+  projects: ProjectItem[];
+  circles: CircleItem[];
+  requests: RequestItem[];
+  allDemands: RequestItem[];
+  relationships: RelItem[];
+  graph: NetworkGraphData;
+}
+
 export default function DashboardPage() {
   const { user } = useAuth();
   const [activeNode, setActiveNode] = useState<string | null>(null);
   const [graphSize, setGraphSize] = useState({ w: 400, h: 350 });
   const graphContainerRef = useRef<HTMLDivElement>(null);
 
-  const { data: projects } = useQuery({
-    queryKey: ["projects"],
-    queryFn: () => api.get<ProjectItem[]>("/projects"),
+  const { data: dashboard } = useQuery({
+    queryKey: ["dashboard"],
+    queryFn: () => api.get<DashboardData>("/dashboard"),
+    staleTime: 60_000,
   });
-  const { data: circles } = useQuery({
-    queryKey: ["circles"],
-    queryFn: () => api.get<CircleItem[]>("/circles"),
-  });
-  const { data: requests } = useQuery({
-    queryKey: ["requests"],
-    queryFn: () => api.get<RequestItem[]>("/requests"),
-  });
-  const { data: allDemands } = useQuery({
-    queryKey: ["demands-all"],
-    queryFn: () => api.get<RequestItem[]>("/requests/all-visible"),
-  });
-  const { data: relationships } = useQuery({
-    queryKey: ["relationships"],
-    queryFn: () => api.get<RelItem[]>("/relationships"),
-  });
-  const { data: graphData } = useQuery({
-    queryKey: ["network-graph"],
-    queryFn: () => api.get<NetworkGraphData>("/requests/network-graph"),
-    staleTime: 10 * 60 * 1000,
-  });
+
+  const dash = dashboard?.data;
+  const projects = { data: dash?.projects };
+  const circles = { data: dash?.circles };
+  const requests = { data: dash?.requests };
+  const graphData = { data: dash?.graph };
 
   // Resize observer for graph container
   useEffect(() => {
@@ -119,7 +115,8 @@ export default function DashboardPage() {
   const projectList = (projects?.data ?? []) as ProjectItem[];
   const circleList = (circles?.data ?? []) as CircleItem[];
   const requestList = (requests?.data ?? []) as RequestItem[];
-  const relList = (relationships?.data ?? []) as RelItem[];
+  const allDemandList = (dash?.allDemands ?? []) as RequestItem[];
+  const relList = (dash?.relationships ?? []) as RelItem[];
 
   const activeProjects = projectList.filter(
     (p) => p.stage !== "completed",
@@ -336,7 +333,7 @@ export default function DashboardPage() {
           </Link>
         </div>
         <div className="space-y-3">
-          {(allDemands?.data ?? []).slice(0, 6).map((d) => (
+          {allDemandList.slice(0, 6).map((d) => (
             <div key={d.id} className="glass-card p-4" style={{ marginBottom: 0 }}>
               {/* Header: urgent tag + time */}
               <div className="flex items-center justify-between mb-2">
