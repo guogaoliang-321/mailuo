@@ -7,7 +7,7 @@ interface GraphNode {
   label: string;
   ring: number;
   type: "user" | "circle";
-  avatar?: string;
+  hasAvatar?: boolean;
 }
 
 interface GraphLink {
@@ -83,12 +83,12 @@ export function NetworkCanvas({ nodes, links, width, height, onNodeTap, activeNo
     circleColorMap.current = map;
   }, [nodes]);
 
-  // Pre-load avatar images
+  // Pre-load avatar images via URL endpoint (not inline base64)
   useEffect(() => {
     for (const n of nodes) {
-      if (n.type === "user" && n.avatar && !imgCache.current.has(n.id)) {
+      if (n.type === "user" && n.hasAvatar && !imgCache.current.has(n.id)) {
         const img = new Image();
-        img.src = n.avatar;
+        img.src = `/api/v1/auth/users/${n.id}/avatar`;
         imgCache.current.set(n.id, img);
       }
     }

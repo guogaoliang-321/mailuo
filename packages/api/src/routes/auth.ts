@@ -155,6 +155,29 @@ authRoutes.post("/logout", async (c) => {
   return c.json({ success: true });
 });
 
+authRoutes.get("/users/:id/avatar", async (c) => {
+  const { id } = c.req.param();
+  const db = getDb();
+  const [user] = await db
+    .select({ avatar: pgSchema.users.avatar })
+    .from(pgSchema.users)
+    .where(eq(pgSchema.users.id, id))
+    .limit(1);
+
+  if (!user?.avatar) return c.notFound();
+
+  const match = user.avatar.match(/^data:([^;]+);base64,(.+)$/);
+  if (!match) return c.notFound();
+
+  const buffer = Buffer.from(match[2], "base64");
+  return new Response(buffer, {
+    headers: {
+      "Content-Type": match[1],
+      "Cache-Control": "public, max-age=86400, immutable",
+    },
+  });
+});
+
 authRoutes.patch("/avatar", requireAuth, async (c) => {
   const body = await c.req.json();
   const parsed = z.object({

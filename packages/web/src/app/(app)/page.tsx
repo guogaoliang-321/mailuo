@@ -68,7 +68,7 @@ const STAGE_COLORS: Record<string, string> = {
 };
 
 interface NetworkGraphData {
-  nodes: Array<{ id: string; label: string; ring: number; type: "user" | "circle" }>;
+  nodes: Array<{ id: string; label: string; ring: number; type: "user" | "circle"; hasAvatar?: boolean }>;
   links: Array<{ source: string; target: string }>;
 }
 
@@ -101,6 +101,7 @@ export default function DashboardPage() {
   const { data: graphData } = useQuery({
     queryKey: ["network-graph"],
     queryFn: () => api.get<NetworkGraphData>("/requests/network-graph"),
+    staleTime: 10 * 60 * 1000,
   });
 
   // Resize observer for graph container
