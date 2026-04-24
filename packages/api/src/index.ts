@@ -2,7 +2,6 @@ import "dotenv/config";
 import { serve } from "@hono/node-server";
 import { Hono } from "hono";
 import { cors } from "hono/cors";
-import { compress } from "hono/compress";
 import { logger } from "hono/logger";
 import { authRoutes } from "./routes/auth.js";
 import { projectRoutes } from "./routes/projects.js";
@@ -21,7 +20,6 @@ import type { AppEnv } from "./types.js";
 const app = new Hono<AppEnv>();
 
 app.use("*", logger());
-app.use("*", compress());
 app.use(
   "*",
   cors({
