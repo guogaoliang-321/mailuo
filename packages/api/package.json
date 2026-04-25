@@ -18,10 +18,12 @@
     "dotenv": "^17.4.2",
     "hono": "^4.7.0",
     "nanoid": "^5.1.0",
-    "serve-static": "^2.2.1"
+    "serve-static": "^2.2.1",
+    "web-push": "^3.6.7"
   },
   "devDependencies": {
     "@types/node": "^22.0.0",
+    "@types/web-push": "^3.6.4",
     "tsx": "^4.19.0",
     "typescript": "^5.8.0"
   }

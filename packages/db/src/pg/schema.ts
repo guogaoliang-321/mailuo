@@ -255,6 +255,15 @@ export const encryptionKeys = pgTable("encryption_keys", {
   createdAt: timestamp("created_at").defaultNow().notNull(),
 });
 
+export const pushSubscriptions = pgTable("push_subscriptions", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  userId: uuid("user_id").references(() => users.id, { onDelete: "cascade" }).notNull(),
+  endpoint: text("endpoint").unique().notNull(),
+  p256dh: text("p256dh").notNull(),
+  auth: text("auth").notNull(),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+
 export const benefitAgreements = pgTable("benefit_agreements", {
   id: uuid("id").primaryKey().defaultRandom(),
   projectId: varchar("project_id", { length: 100 }).notNull(),

@@ -39,6 +39,7 @@ COPY --from=build /app/package.json ./
 # Next.js standalone
 COPY --from=build /app/packages/web/.next/standalone ./
 COPY --from=build /app/packages/web/.next/static ./packages/web/.next/static
+COPY --from=build /app/packages/web/public ./packages/web/public
 
 # Startup script: start API on 4000, then Next.js on 8080
 RUN echo '#!/bin/sh\nnode /app/packages/api/dist/index.js &\nHOSTNAME=0.0.0.0 PORT=8080 node /app/packages/web/server.js' > /app/start.sh && chmod +x /app/start.sh

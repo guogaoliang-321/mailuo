@@ -1,10 +1,10 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { useAuth } from "@/lib/auth";
 import { api } from "@/lib/api";
-import { User, Mail, Shield, Users, Pencil, Lock, Check, X, LogOut, KeyRound, Camera } from "lucide-react";
+import { User, Mail, Shield, Users, Pencil, Lock, Check, X, LogOut, KeyRound, Camera, Bell, BellOff } from "lucide-react";
 
 export default function SettingsPage() {
   const { user, logout, updateProfile, updateAvatar } = useAuth();
@@ -87,6 +87,98 @@ export default function SettingsPage() {
   const joinedDate = user?.createdAt
     ? new Date(user.createdAt).toLocaleDateString("zh-CN", { year: "numeric", month: "long", day: "numeric" })
     : null;
+
+  // Push notification state
+  const [pushSupported, setPushSupported] = useState(false);
+  const [pushSubscribed, setPushSubscribed] = useState(false);
+  const [pushLoading, setPushLoading] = useState(false);
+  const [pushError, setPushError] = useState("");
+  const [currentSubscription, setCurrentSubscription] = useState<PushSubscription | null>(null);
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    if (!("PushManager" in window) || !("serviceWorker" in navigator)) return;
+    setPushSupported(true);
+
+    navigator.serviceWorker.ready.then((reg) => {
+      reg.pushManager.getSubscription().then((sub) => {
+        if (sub) {
+          setCurrentSubscription(sub);
+          setPushSubscribed(true);
+        }
+      });
+    });
+  }, []);
+
+  const handleEnablePush = async () => {
+    setPushLoading(true);
+    setPushError("");
+    try {
+      const permission = await Notification.requestPermission();
+      if (permission !== "granted") {
+        setPushError("请在浏览器设置中允许通知权限");
+        setPushLoading(false);
+        return;
+      }
+
+      const keyRes = await api.get("/push/vapid-key");
+      if (!keyRes.success || !keyRes.data) {
+        setPushError("获取配置失败，请稍后重试");
+        setPushLoading(false);
+        return;
+      }
+
+      const vapidPublicKey = keyRes.data as string;
+      const reg = await navigator.serviceWorker.ready;
+
+      // Convert VAPID key from base64 to Uint8Array
+      const padding = "=".repeat((4 - (vapidPublicKey.length % 4)) % 4);
+      const base64 = (vapidPublicKey + padding).replace(/-/g, "+").replace(/_/g, "/");
+      const rawKey = window.atob(base64);
+      const applicationServerKey = new Uint8Array(rawKey.length);
+      for (let i = 0; i < rawKey.length; i++) {
+        applicationServerKey[i] = rawKey.charCodeAt(i);
+      }
+
+      const subscription = await reg.pushManager.subscribe({
+        userVisibleOnly: true,
+        applicationServerKey,
+      });
+
+      const subJson = subscription.toJSON();
+      const res = await api.post("/push/subscribe", {
+        endpoint: subscription.endpoint,
+        p256dh: subJson.keys?.p256dh ?? "",
+        auth: subJson.keys?.auth ?? "",
+      });
+
+      if (!res.success) {
+        await subscription.unsubscribe();
+        setPushError(res.error ?? "订阅失败");
+      } else {
+        setCurrentSubscription(subscription);
+        setPushSubscribed(true);
+      }
+    } catch (err) {
+      setPushError(err instanceof Error ? err.message : "开启失败，请重试");
+    }
+    setPushLoading(false);
+  };
+
+  const handleDisablePush = async () => {
+    if (!currentSubscription) return;
+    setPushLoading(true);
+    setPushError("");
+    try {
+      await api.delete("/push/subscribe", { endpoint: currentSubscription.endpoint });
+      await currentSubscription.unsubscribe();
+      setCurrentSubscription(null);
+      setPushSubscribed(false);
+    } catch (err) {
+      setPushError(err instanceof Error ? err.message : "关闭失败，请重试");
+    }
+    setPushLoading(false);
+  };
 
   return (
     <div className="space-y-6 max-w-lg">
@@ -183,6 +275,45 @@ export default function SettingsPage() {
           )}
         </div>
       </div>
+
+      {/* Push Notifications */}
+      {pushSupported && (
+        <div className="glass-card p-6 space-y-4">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-2.5">
+              <Bell className="w-4 h-4 text-white/40" />
+              <div>
+                <p className="text-sm font-semibold text-white/80">消息通知</p>
+                <p className="text-xs text-white/30">
+                  {pushSubscribed ? "已开启推送通知" : "开启后可收到广场新评论提醒"}
+                </p>
+              </div>
+            </div>
+            <div className="flex items-center gap-2">
+              {pushSubscribed ? (
+                <button
+                  onClick={handleDisablePush}
+                  disabled={pushLoading}
+                  className="flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-lg bg-white/5 text-white/50 hover:bg-white/10 hover:text-white/80 transition-colors disabled:opacity-50"
+                >
+                  <BellOff className="w-3.5 h-3.5" />
+                  {pushLoading ? "处理中…" : "关闭通知"}
+                </button>
+              ) : (
+                <button
+                  onClick={handleEnablePush}
+                  disabled={pushLoading}
+                  className="flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-lg bg-[#D4A853]/15 text-[#D4A853] hover:bg-[#D4A853]/25 transition-colors disabled:opacity-50"
+                >
+                  <Bell className="w-3.5 h-3.5" />
+                  {pushLoading ? "处理中…" : "开启通知"}
+                </button>
+              )}
+            </div>
+          </div>
+          {pushError && <p className="text-xs text-red-400">{pushError}</p>}
+        </div>
+      )}
 
       {/* Security */}
       <div className="glass-card p-6 space-y-4">
