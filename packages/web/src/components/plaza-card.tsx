@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { ChevronDown, ChevronUp, MessageSquare, Trash2 } from "lucide-react";
+import { ChevronDown, ChevronUp, MessageSquare } from "lucide-react";
 import { api } from "@/lib/api";
 import { useAuth } from "@/lib/auth";
 
@@ -23,6 +23,7 @@ const CATEGORY_COLORS: Record<string, string> = {
 };
 
 const AVATAR_COLORS = ["#D4A853", "#5AC8FA", "#30D158", "#BF5AF2", "#FF9F0A", "#FF375F"];
+const SHOW_LIMIT = 3;
 
 // ── Types ──────────────────────────────────────────────────────────────────
 
@@ -61,10 +62,10 @@ function fmtTime(ts: string) {
 
 function Avatar({ name, size = 7 }: { name: string; size?: number }) {
   const color = avatarColor(name);
-  const dim = size * 4; // tailwind w-7 = 28px
+  const dim = size * 4;
   return (
     <div
-      className={`w-${size} h-${size} rounded-full flex items-center justify-center font-bold shrink-0`}
+      className="rounded-full flex items-center justify-center font-bold shrink-0"
       style={{ backgroundColor: `${color}22`, color, width: dim, height: dim, fontSize: dim * 0.4 }}
     >
       {name?.[0] ?? "?"}
@@ -72,7 +73,37 @@ function Avatar({ name, size = 7 }: { name: string; size?: number }) {
   );
 }
 
-// ── Sub-reply item (inside an expanded thread) ─────────────────────────────
+// ── Inline confirm helper ──────────────────────────────────────────────────
+
+function ConfirmDelete({
+  onConfirm,
+  onCancel,
+  loading,
+}: {
+  onConfirm: () => void;
+  onCancel: () => void;
+  loading: boolean;
+}) {
+  return (
+    <span className="flex items-center gap-1.5">
+      <button
+        onClick={onConfirm}
+        disabled={loading}
+        className="text-[10px] text-red-400 hover:text-red-300 transition-colors disabled:opacity-40"
+      >
+        确认
+      </button>
+      <button
+        onClick={onCancel}
+        className="text-[10px] text-white/30 hover:text-white/50 transition-colors"
+      >
+        取消
+      </button>
+    </span>
+  );
+}
+
+// ── Sub-reply item ─────────────────────────────────────────────────────────
 
 function SubReplyItem({
   reply,
@@ -87,6 +118,7 @@ function SubReplyItem({
   onClickReply: (parentId: string, parentName: string) => void;
   onDeleted: () => void;
 }) {
+  const [confirmDel, setConfirmDel] = useState(false);
   const [deleting, setDeleting] = useState(false);
   const color = avatarColor(reply.userName);
 
@@ -97,33 +129,29 @@ function SubReplyItem({
   };
 
   return (
-    <div className="flex items-start gap-2 py-2">
-      <Avatar name={reply.userName} size={5} />
-      <div className="flex-1 min-w-0">
-        <span className="text-[11px] font-semibold mr-1.5" style={{ color }}>
-          {reply.userName}
-        </span>
-        <span className="text-[12px] text-white/60 break-words leading-relaxed">
-          {reply.content}
-        </span>
-        <div className="flex items-center gap-3 mt-1">
-          <span className="text-[10px] text-white/20">{fmtTime(reply.created_at)}</span>
-          <button
-            onClick={() => onClickReply(reply.id, reply.userName)}
-            className="text-[10px] text-white/25 hover:text-[#D4A853]/70 transition-colors"
-          >
-            回复
-          </button>
+    <div className="py-1.5">
+      {/* Row 1: Avatar + Name + Time + Delete */}
+      <div className="flex items-center gap-1.5">
+        <Avatar name={reply.userName} size={5} />
+        <span className="text-[11px] font-semibold" style={{ color }}>{reply.userName}</span>
+        <span className="text-[10px] text-white/20">{fmtTime(reply.created_at)}</span>
+        <span className="ml-auto">
           {canDelete && (
-            <button
-              onClick={handleDelete}
-              disabled={deleting}
-              className="text-[10px] text-white/20 hover:text-red-400/70 transition-colors disabled:opacity-40"
-            >
-              <Trash2 className="w-3 h-3" />
-            </button>
+            confirmDel
+              ? <ConfirmDelete onConfirm={handleDelete} onCancel={() => setConfirmDel(false)} loading={deleting} />
+              : <button onClick={() => setConfirmDel(true)} className="text-[10px] text-white/20 hover:text-red-400/70 transition-colors">删除</button>
           )}
-        </div>
+        </span>
+      </div>
+      {/* Row 2: Content + Reply */}
+      <div className="flex items-start gap-2 ml-[22px] mt-0.5">
+        <span className="flex-1 text-[12px] text-white/60 break-words leading-relaxed">{reply.content}</span>
+        <button
+          onClick={() => onClickReply(reply.id, reply.userName)}
+          className="text-[10px] text-white/25 hover:text-[#D4A853]/70 transition-colors shrink-0 mt-0.5"
+        >
+          回复
+        </button>
       </div>
     </div>
   );
@@ -148,6 +176,7 @@ function CommentItem({
   const [replyTarget, setReplyTarget] = useState<{ parentId: string; parentName: string } | null>(null);
   const [replyText, setReplyText] = useState("");
   const [sending, setSending] = useState(false);
+  const [confirmDel, setConfirmDel] = useState(false);
   const [deleting, setDeleting] = useState(false);
   const color = avatarColor(reply.userName);
 
@@ -175,123 +204,93 @@ function CommentItem({
     onNewReply();
   };
 
+  const replyInput = (
+    <div className="flex gap-2 py-1.5">
+      <input
+        type="text"
+        value={replyText}
+        onChange={(e) => setReplyText(e.target.value)}
+        placeholder={`回复 ${replyTarget?.parentName}…`}
+        className="input-dark flex-1 text-xs py-1.5"
+        autoFocus
+        onKeyDown={(e) => {
+          if (e.key === "Enter") handleSend();
+          if (e.key === "Escape") { setReplyTarget(null); setReplyText(""); }
+        }}
+      />
+      <button onClick={handleSend} disabled={sending || !replyText.trim()} className="text-[11px] text-[#D4A853] px-2 shrink-0 disabled:opacity-40">
+        {sending ? "…" : "发送"}
+      </button>
+      <button onClick={() => { setReplyTarget(null); setReplyText(""); }} className="text-[11px] text-white/25 shrink-0">
+        取消
+      </button>
+    </div>
+  );
+
   return (
-    <div>
-      {/* Comment row */}
-      <div className="flex items-start gap-3 py-3">
+    <div className="py-2.5">
+      {/* Row 1: Avatar + Name + Time + Delete */}
+      <div className="flex items-center gap-2">
         <Avatar name={reply.userName} size={7} />
-        <div className="flex-1 min-w-0">
-          <div className="flex items-center gap-2 mb-1">
-            <span className="text-[12px] font-semibold" style={{ color }}>{reply.userName}</span>
-            <span className="text-[10px] text-white/20">{fmtTime(reply.created_at)}</span>
-          </div>
-          <p className="text-[13px] text-white/70 leading-relaxed break-words">{reply.content}</p>
-          <div className="flex items-center gap-4 mt-2">
-            <button
-              onClick={() => openReply(reply.id, reply.userName)}
-              className="text-[10px] text-white/25 hover:text-[#D4A853]/70 transition-colors"
-            >
-              回复
-            </button>
-            {subReplies.length > 0 && (
-              <button
-                onClick={() => setSubExpanded((v) => !v)}
-                className="flex items-center gap-1 text-[10px] text-[#5AC8FA]/60 hover:text-[#5AC8FA] transition-colors"
-              >
-                {subExpanded ? <ChevronUp className="w-2.5 h-2.5" /> : <ChevronDown className="w-2.5 h-2.5" />}
-                {subExpanded ? "收起回复" : `展开 ${subReplies.length} 条回复`}
-              </button>
-            )}
-            {canDelete(reply.userId) && (
-              <button
-                onClick={handleDeleteComment}
-                disabled={deleting}
-                className="text-[10px] text-white/20 hover:text-red-400/70 transition-colors disabled:opacity-40 ml-auto"
-              >
-                <Trash2 className="w-3 h-3" />
-              </button>
-            )}
-          </div>
-        </div>
+        <span className="text-[12px] font-semibold" style={{ color }}>{reply.userName}</span>
+        <span className="text-[10px] text-white/20">{fmtTime(reply.created_at)}</span>
+        <span className="ml-auto">
+          {canDelete(reply.userId) && (
+            confirmDel
+              ? <ConfirmDelete onConfirm={handleDeleteComment} onCancel={() => setConfirmDel(false)} loading={deleting} />
+              : <button onClick={() => setConfirmDel(true)} className="text-[10px] text-white/20 hover:text-red-400/70 transition-colors">删除</button>
+          )}
+        </span>
       </div>
 
-      {/* Sub-replies block — collapsed by default */}
-      {subExpanded && (
-        <div className="ml-10 pl-3 border-l border-white/[0.06] space-y-0">
-          {subReplies.map((sr) => (
-            <SubReplyItem key={sr.id} reply={sr} messageId={messageId} canDelete={canDelete(sr.userId)} onClickReply={openReply} onDeleted={onNewReply} />
-          ))}
+      {/* Row 2: Content + Reply */}
+      <div className="flex items-start gap-2 ml-9 mt-0.5">
+        <p className="flex-1 text-[13px] text-white/70 leading-relaxed break-words">{reply.content}</p>
+        <button
+          onClick={() => openReply(reply.id, reply.userName)}
+          className="text-[10px] text-white/25 hover:text-[#D4A853]/70 transition-colors shrink-0 mt-0.5"
+        >
+          回复
+        </button>
+      </div>
 
-          {/* Reply input inside thread */}
-          {replyTarget && (
-            <div className="flex gap-2 py-2">
-              <input
-                type="text"
-                value={replyText}
-                onChange={(e) => setReplyText(e.target.value)}
-                placeholder={`回复 ${replyTarget.parentName}…`}
-                className="input-dark flex-1 text-xs py-1.5"
-                autoFocus
-                onKeyDown={(e) => {
-                  if (e.key === "Enter") handleSend();
-                  if (e.key === "Escape") { setReplyTarget(null); setReplyText(""); }
-                }}
-              />
-              <button
-                onClick={handleSend}
-                disabled={sending || !replyText.trim()}
-                className="text-[11px] text-[#D4A853] px-2 shrink-0 disabled:opacity-40"
-              >
-                {sending ? "…" : "发送"}
-              </button>
-              <button
-                onClick={() => { setReplyTarget(null); setReplyText(""); }}
-                className="text-[11px] text-white/25 shrink-0"
-              >
-                取消
-              </button>
-            </div>
-          )}
+      {/* Sub-replies toggle */}
+      {subReplies.length > 0 && (
+        <button
+          onClick={() => setSubExpanded((v) => !v)}
+          className="flex items-center gap-1 ml-9 mt-1 text-[10px] text-[#5AC8FA]/60 hover:text-[#5AC8FA] transition-colors"
+        >
+          {subExpanded ? <ChevronUp className="w-2.5 h-2.5" /> : <ChevronDown className="w-2.5 h-2.5" />}
+          {subExpanded ? "收起回复" : `展开 ${subReplies.length} 条回复`}
+        </button>
+      )}
+
+      {/* Sub-replies */}
+      {subExpanded && (
+        <div className="ml-9 pl-3 border-l border-white/[0.06] mt-1">
+          {subReplies.map((sr) => (
+            <SubReplyItem
+              key={sr.id}
+              reply={sr}
+              messageId={messageId}
+              canDelete={canDelete(sr.userId)}
+              onClickReply={openReply}
+              onDeleted={onNewReply}
+            />
+          ))}
+          {replyTarget && replyInput}
         </div>
       )}
 
-      {/* Reply input when no sub-replies yet */}
+      {/* Reply input when thread not yet expanded */}
       {!subExpanded && replyTarget && (
-        <div className="ml-10 flex gap-2 pb-2">
-          <input
-            type="text"
-            value={replyText}
-            onChange={(e) => setReplyText(e.target.value)}
-            placeholder={`回复 ${replyTarget.parentName}…`}
-            className="input-dark flex-1 text-xs py-1.5"
-            autoFocus
-            onKeyDown={(e) => {
-              if (e.key === "Enter") handleSend();
-              if (e.key === "Escape") { setReplyTarget(null); setReplyText(""); }
-            }}
-          />
-          <button
-            onClick={handleSend}
-            disabled={sending || !replyText.trim()}
-            className="text-[11px] text-[#D4A853] px-2 shrink-0 disabled:opacity-40"
-          >
-            {sending ? "…" : "发送"}
-          </button>
-          <button
-            onClick={() => { setReplyTarget(null); setReplyText(""); }}
-            className="text-[11px] text-white/25 shrink-0"
-          >
-            取消
-          </button>
-        </div>
+        <div className="ml-9 mt-1">{replyInput}</div>
       )}
     </div>
   );
 }
 
 // ── Main PlazaCard ─────────────────────────────────────────────────────────
-
-const SHOW_LIMIT = 3;
 
 export function PlazaCard({ message: m }: { message: PlazaMsg }) {
   const { user } = useAuth();
@@ -300,12 +299,13 @@ export function PlazaCard({ message: m }: { message: PlazaMsg }) {
   const [showAll, setShowAll] = useState(false);
   const [replyText, setReplyText] = useState("");
   const [sending, setSending] = useState(false);
-  const [deletingMsg, setDeletingMsg] = useState(false);
+  const [confirmDel, setConfirmDel] = useState(false);
+  const [deleting, setDeleting] = useState(false);
 
   const canDelete = (ownerId: string) => user?.id === ownerId || user?.role === "admin";
 
   const handleDeleteMessage = async () => {
-    setDeletingMsg(true);
+    setDeleting(true);
     await api.delete(`/plaza/${m.id}`);
     queryClient.invalidateQueries({ queryKey: ["plaza"] });
   };
@@ -320,9 +320,6 @@ export function PlazaCard({ message: m }: { message: PlazaMsg }) {
   const allReplies = repliesData?.data ?? [];
   const topLevel = allReplies.filter((r) => !r.parentId);
 
-  // Build sub-reply map: parentId → children
-  // For sub-replies whose parentId points to another sub-reply,
-  // we group them under that sub-reply's top-level ancestor.
   const replyMap = new Map<string, PlazaReply>();
   for (const r of allReplies) replyMap.set(r.id, r);
 
@@ -336,7 +333,6 @@ export function PlazaCard({ message: m }: { message: PlazaMsg }) {
     return allReplies.filter((r) => r.parentId !== null && rootId(r.id) === topId);
   }
 
-  // Show latest SHOW_LIMIT top-level; older ones behind expand
   const hiddenCount = Math.max(0, topLevel.length - SHOW_LIMIT);
   const visible = showAll ? topLevel : topLevel.slice(-SHOW_LIMIT);
 
@@ -365,7 +361,7 @@ export function PlazaCard({ message: m }: { message: PlazaMsg }) {
         </span>
       )}
 
-      {/* Content + meta on same row */}
+      {/* Content + meta */}
       <div className="flex items-start gap-3 pb-4 border-b border-white/[0.06]">
         <p className="flex-1 text-[15px] text-white/85 leading-[1.7] break-words">{m.content}</p>
         <div className="flex items-center gap-1.5 shrink-0 ml-3 mt-0.5">
@@ -373,13 +369,9 @@ export function PlazaCard({ message: m }: { message: PlazaMsg }) {
           <span className="text-[12px] text-white/55 font-medium whitespace-nowrap">{m.userName}</span>
           <span className="text-[10px] text-white/25 whitespace-nowrap">{fmtTime(m.created_at)}</span>
           {canDelete(m.userId) && (
-            <button
-              onClick={handleDeleteMessage}
-              disabled={deletingMsg}
-              className="text-[10px] text-white/20 hover:text-red-400/70 transition-colors disabled:opacity-40 ml-1"
-            >
-              <Trash2 className="w-3.5 h-3.5" />
-            </button>
+            confirmDel
+              ? <ConfirmDelete onConfirm={handleDeleteMessage} onCancel={() => setConfirmDel(false)} loading={deleting} />
+              : <button onClick={() => setConfirmDel(true)} className="text-[10px] text-white/20 hover:text-red-400/70 transition-colors ml-1">删除</button>
           )}
         </div>
       </div>
@@ -401,7 +393,7 @@ export function PlazaCard({ message: m }: { message: PlazaMsg }) {
 
         {commentsOpen && (
           <div className="mt-3">
-            {/* Expand older comments (card style) */}
+            {/* Expand older comments */}
             {!showAll && hiddenCount > 0 && (
               <button
                 onClick={() => setShowAll(true)}
@@ -411,7 +403,6 @@ export function PlazaCard({ message: m }: { message: PlazaMsg }) {
               </button>
             )}
 
-            {/* Top-level comments */}
             <div className="divide-y divide-white/[0.04]">
               {visible.length === 0 ? (
                 <p className="text-[11px] text-white/20 py-4 text-center">暂无评论，来说点什么</p>
