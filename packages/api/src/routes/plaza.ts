@@ -1,6 +1,6 @@
 import { Hono } from "hono";
 import { neo4jQueries, getDb, pgSchema } from "@meridian/db";
-import { eq } from "drizzle-orm";
+import { eq, and } from "drizzle-orm";
 import { requireAuth } from "../middleware/auth.js";
 import { sendPushToUser } from "./push.js";
 import type { AppEnv } from "../types.js";
@@ -60,4 +60,45 @@ plazaRoutes.post("/:id/replies", async (c) => {
   }
 
   return c.json({ success: true, data: reply }, 201);
+});
+
+// ── Delete message (author or admin) ──────────────────────────────────────
+plazaRoutes.delete("/:id", async (c) => {
+  const messageId = c.req.param("id");
+  const userId = c.get("userId");
+  const db = getDb();
+
+  const [[msg], [actor]] = await Promise.all([
+    db.select({ userId: pgSchema.plazaMessages.userId }).from(pgSchema.plazaMessages).where(eq(pgSchema.plazaMessages.id, messageId)).limit(1),
+    db.select({ role: pgSchema.users.role }).from(pgSchema.users).where(eq(pgSchema.users.id, userId)).limit(1),
+  ]);
+
+  if (!msg) return c.json({ success: false, error: "消息不存在" }, 404);
+  if (msg.userId !== userId && actor?.role !== "admin") return c.json({ success: false, error: "无权限" }, 403);
+
+  await db.delete(pgSchema.plazaReplies).where(eq(pgSchema.plazaReplies.messageId, messageId));
+  await db.delete(pgSchema.plazaMessages).where(eq(pgSchema.plazaMessages.id, messageId));
+  return c.json({ success: true });
+});
+
+// ── Delete reply (author or admin) ────────────────────────────────────────
+plazaRoutes.delete("/:id/replies/:replyId", async (c) => {
+  const replyId = c.req.param("replyId");
+  const userId = c.get("userId");
+  const db = getDb();
+
+  const [[reply], [actor]] = await Promise.all([
+    db.select({ userId: pgSchema.plazaReplies.userId }).from(pgSchema.plazaReplies).where(eq(pgSchema.plazaReplies.id, replyId)).limit(1),
+    db.select({ role: pgSchema.users.role }).from(pgSchema.users).where(eq(pgSchema.users.id, userId)).limit(1),
+  ]);
+
+  if (!reply) return c.json({ success: false, error: "评论不存在" }, 404);
+  if (reply.userId !== userId && actor?.role !== "admin") return c.json({ success: false, error: "无权限" }, 403);
+
+  // Delete the reply and any sub-replies that reference it
+  await db.delete(pgSchema.plazaReplies).where(and(
+    eq(pgSchema.plazaReplies.messageId, c.req.param("id")),
+    eq(pgSchema.plazaReplies.id, replyId),
+  ));
+  return c.json({ success: true });
 });

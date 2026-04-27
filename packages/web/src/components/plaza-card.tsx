@@ -1,9 +1,10 @@
 "use client";
 
 import { useState } from "react";
-import { useQuery } from "@tanstack/react-query";
-import { ChevronDown, ChevronUp, MessageSquare } from "lucide-react";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { ChevronDown, ChevronUp, MessageSquare, Trash2 } from "lucide-react";
 import { api } from "@/lib/api";
+import { useAuth } from "@/lib/auth";
 
 // ── Constants ──────────────────────────────────────────────────────────────
 
@@ -75,12 +76,26 @@ function Avatar({ name, size = 7 }: { name: string; size?: number }) {
 
 function SubReplyItem({
   reply,
+  messageId,
+  canDelete,
   onClickReply,
+  onDeleted,
 }: {
   reply: PlazaReply;
+  messageId: string;
+  canDelete: boolean;
   onClickReply: (parentId: string, parentName: string) => void;
+  onDeleted: () => void;
 }) {
+  const [deleting, setDeleting] = useState(false);
   const color = avatarColor(reply.userName);
+
+  const handleDelete = async () => {
+    setDeleting(true);
+    await api.delete(`/plaza/${messageId}/replies/${reply.id}`);
+    onDeleted();
+  };
+
   return (
     <div className="flex items-start gap-2 py-2">
       <Avatar name={reply.userName} size={5} />
@@ -99,6 +114,15 @@ function SubReplyItem({
           >
             回复
           </button>
+          {canDelete && (
+            <button
+              onClick={handleDelete}
+              disabled={deleting}
+              className="text-[10px] text-white/20 hover:text-red-400/70 transition-colors disabled:opacity-40"
+            >
+              <Trash2 className="w-3 h-3" />
+            </button>
+          )}
         </div>
       </div>
     </div>
@@ -111,18 +135,27 @@ function CommentItem({
   reply,
   subReplies,
   messageId,
+  canDelete,
   onNewReply,
 }: {
   reply: PlazaReply;
   subReplies: PlazaReply[];
   messageId: string;
+  canDelete: (userId: string) => boolean;
   onNewReply: () => void;
 }) {
   const [subExpanded, setSubExpanded] = useState(false);
   const [replyTarget, setReplyTarget] = useState<{ parentId: string; parentName: string } | null>(null);
   const [replyText, setReplyText] = useState("");
   const [sending, setSending] = useState(false);
+  const [deleting, setDeleting] = useState(false);
   const color = avatarColor(reply.userName);
+
+  const handleDeleteComment = async () => {
+    setDeleting(true);
+    await api.delete(`/plaza/${messageId}/replies/${reply.id}`);
+    onNewReply();
+  };
 
   const openReply = (parentId: string, parentName: string) => {
     setReplyTarget({ parentId, parentName });
@@ -169,6 +202,15 @@ function CommentItem({
                 {subExpanded ? "收起回复" : `展开 ${subReplies.length} 条回复`}
               </button>
             )}
+            {canDelete(reply.userId) && (
+              <button
+                onClick={handleDeleteComment}
+                disabled={deleting}
+                className="text-[10px] text-white/20 hover:text-red-400/70 transition-colors disabled:opacity-40 ml-auto"
+              >
+                <Trash2 className="w-3 h-3" />
+              </button>
+            )}
           </div>
         </div>
       </div>
@@ -177,7 +219,7 @@ function CommentItem({
       {subExpanded && (
         <div className="ml-10 pl-3 border-l border-white/[0.06] space-y-0">
           {subReplies.map((sr) => (
-            <SubReplyItem key={sr.id} reply={sr} onClickReply={openReply} />
+            <SubReplyItem key={sr.id} reply={sr} messageId={messageId} canDelete={canDelete(sr.userId)} onClickReply={openReply} onDeleted={onNewReply} />
           ))}
 
           {/* Reply input inside thread */}
@@ -252,10 +294,21 @@ function CommentItem({
 const SHOW_LIMIT = 3;
 
 export function PlazaCard({ message: m }: { message: PlazaMsg }) {
+  const { user } = useAuth();
+  const queryClient = useQueryClient();
   const [commentsOpen, setCommentsOpen] = useState(false);
   const [showAll, setShowAll] = useState(false);
   const [replyText, setReplyText] = useState("");
   const [sending, setSending] = useState(false);
+  const [deletingMsg, setDeletingMsg] = useState(false);
+
+  const canDelete = (ownerId: string) => user?.id === ownerId || user?.role === "admin";
+
+  const handleDeleteMessage = async () => {
+    setDeletingMsg(true);
+    await api.delete(`/plaza/${m.id}`);
+    queryClient.invalidateQueries({ queryKey: ["plaza"] });
+  };
 
   const { data: repliesData, refetch } = useQuery({
     queryKey: ["plaza-replies", m.id],
@@ -319,6 +372,15 @@ export function PlazaCard({ message: m }: { message: PlazaMsg }) {
           <Avatar name={m.userName} size={5} />
           <span className="text-[12px] text-white/55 font-medium whitespace-nowrap">{m.userName}</span>
           <span className="text-[10px] text-white/25 whitespace-nowrap">{fmtTime(m.created_at)}</span>
+          {canDelete(m.userId) && (
+            <button
+              onClick={handleDeleteMessage}
+              disabled={deletingMsg}
+              className="text-[10px] text-white/20 hover:text-red-400/70 transition-colors disabled:opacity-40 ml-1"
+            >
+              <Trash2 className="w-3.5 h-3.5" />
+            </button>
+          )}
         </div>
       </div>
 
@@ -360,6 +422,7 @@ export function PlazaCard({ message: m }: { message: PlazaMsg }) {
                     reply={r}
                     subReplies={getSubReplies(r.id)}
                     messageId={m.id}
+                    canDelete={canDelete}
                     onNewReply={refetch}
                   />
                 ))
