@@ -295,7 +295,7 @@ function CommentItem({
 export function PlazaCard({ message: m }: { message: PlazaMsg }) {
   const { user } = useAuth();
   const queryClient = useQueryClient();
-  const [commentsOpen, setCommentsOpen] = useState(false);
+  const [commentsOpen, setCommentsOpen] = useState(true);
   const [showAll, setShowAll] = useState(false);
   const [replyText, setReplyText] = useState("");
   const [sending, setSending] = useState(false);
@@ -313,7 +313,7 @@ export function PlazaCard({ message: m }: { message: PlazaMsg }) {
   const { data: repliesData, refetch } = useQuery({
     queryKey: ["plaza-replies", m.id],
     queryFn: () => api.get<PlazaReply[]>(`/plaza/${m.id}/replies`),
-    enabled: commentsOpen,
+    enabled: true,
     staleTime: 30_000,
   });
 
